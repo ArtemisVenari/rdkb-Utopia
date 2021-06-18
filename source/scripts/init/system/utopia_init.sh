@@ -892,4 +892,24 @@ $UTOPIA_PATH/service_multinet_exec set_multicast_mac &
 ipset create port_scanners hash:ip family inet hashsize 32768 maxelem 65536 timeout 120
 ipset create scanned_ports hash:ip,port family inet hashsize 32768 maxelem 65536 timeout 60
 
+echo_t "[utopia][init] Setting NAT Timeouts"
+UDP_TIMEOUT=`syscfg get UDP_TIMEOUT`
+UDP_STREAM_TIMEOUT=`syscfg get UDP_STREAM_TIMEOUT`
+ICMP_TIMEOUT=`syscfg get ICMP_TIMEOUT`
+
+if [ $UDP_TIMEOUT -lt 120 ]; then
+    UDP_TIMEOUT=120 # Default proc value for nf_conntrack_udp_timeout in Linux
+fi
+echo $UDP_TIMEOUT > /proc/sys/net/netfilter/nf_conntrack_udp_timeout
+
+if [ $UDP_STREAM_TIMEOUT -lt $UDP_TIMEOUT ]; then
+    UDP_STREAM_TIMEOUT=$(($UDP_TIMEOUT+180))  # Default proc value for nf_conntrack_udp_timeout_stream in Linux
+fi
+echo $UDP_STREAM_TIMEOUT > /proc/sys/net/netfilter/nf_conntrack_udp_timeout_stream
+
+if [ $ICMP_TIMEOUT -lt 60 ]; then
+    ICMP_TIMEOUT=60 # Default proc value for nf_conntrack_icmp_timeout in RFC
+fi
+echo $ICMP_TIMEOUT > /proc/sys/net/netfilter/nf_conntrack_icmp_timeout
+
 echo 1 > /proc/sys/net/ipv4/ip_forward
