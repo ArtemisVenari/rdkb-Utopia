@@ -399,9 +399,9 @@ int Utopia_GetLanSettings (UtopiaContext *ctx, lanSetting_t *lan)
     UTOPIA_GET(ctx, UtopiaValue_LAN_IPAddr, lan->ipaddr, IPADDR_SZ);
     UTOPIA_GET(ctx, UtopiaValue_LAN_Netmask, lan->netmask, IPADDR_SZ);
     /*just for USGv2*/
-    get_dhcp_wan_domain(lan->domain);
-    if(lan->domain[0]==0)
-        Utopia_Get(ctx, UtopiaValue_LAN_Domain, lan->domain, IPHOSTNAME_SZ);
+    //get_dhcp_wan_domain(lan->domain);
+   // if(lan->domain[0]==0)
+    Utopia_Get(ctx, UtopiaValue_LAN_Domain, lan->domain, IPHOSTNAME_SZ);
     Utopia_Get(ctx, UtopiaValue_LAN_IfName, lan->ifname, IFNAME_SZ);
     s_get_interface_mac(lan->ifname, lan->macaddr, MACADDR_SZ);
 

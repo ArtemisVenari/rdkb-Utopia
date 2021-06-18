@@ -57,7 +57,7 @@ SERVICE_NAME="dhcp_server"
 
 #DHCP_CONF=/etc/dnsmasq.conf
 DHCP_CONF=/var/dnsmasq.conf
-RESOLV_CONF=/etc/resolv.conf
+RESOLV_CONF=/etc/resolv.dnsmasq
 BIN=dnsmasq
 SERVER=${BIN}
 PMON=/etc/utopia/service.d/pmon.sh
@@ -407,8 +407,7 @@ dhcp_server_start ()
         # been set if DHCP was disabled on boot.
         echo_t "SERVICE DHCP : DHCPv4 Service state is empty, allowing restart"
    	  else
-         rm -f /var/tmp/lan_not_restart
-         exit 0
+         echo_t "SERVICE DHCP :DHCP Restarted"
       fi
    fi
 

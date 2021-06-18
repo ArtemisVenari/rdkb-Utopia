@@ -433,8 +433,8 @@ NOT_DEF:
 
 #ifdef _COSA_FOR_BCI_
 #define BRIDGE_MODE_IP_ADDRESS "10.1.10.1"
-#else
-#define BRIDGE_MODE_IP_ADDRESS "10.0.0.1"
+//#else
+//#define BRIDGE_MODE_IP_ADDRESS "10.0.0.1"
 #endif
 
 #define IS_EMPTY_STRING(s)    ((s == NULL) || (*s == '\0'))
@@ -13061,6 +13061,8 @@ static int prepare_disabled_ipv4_firewall(FILE *raw_fp, FILE *mangle_fp, FILE *n
    /*
     * raw
     */
+   char BRIDGE_MODE_IP_ADDRESS[128]= {0};
+   syscfg_get(NULL, "lan_ipaddr", BRIDGE_MODE_IP_ADDRESS, sizeof(BRIDGE_MODE_IP_ADDRESS));
    FIREWALL_DEBUG("Entering prepare_disabled_ipv4_firewall \n"); 
    fprintf(raw_fp, "%s\n", "*raw");
    fprintf(raw_fp, "%s\n", ":PREROUTING ACCEPT [0:0]");
