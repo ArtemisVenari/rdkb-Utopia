@@ -1772,6 +1772,9 @@ int commit_to_file (const char *fname)
     }
     _syscfg_file_unlock(fd);
 
+    /* make sure data is synced to flash immediately */
+    fdatasync(fd);
+
     close(fd);
 
    ret = access(SYSCFG_BKUP_FILE, F_OK);
