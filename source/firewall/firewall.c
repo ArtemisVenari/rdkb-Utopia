@@ -2934,13 +2934,29 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
       toip[0] = '\0';
       char toipv6[64];
       toipv6[0] = '\0';
+      char buf[200] = {'\0'};
+      char internalclient[256]={'\0'};
+      FILE *lanClients;
       
       if(iptype == AF_INET){
-          rc = syscfg_get(namespace, "to_ip", toip, sizeof(toip));
+          rc = syscfg_get(namespace, "to_ip",internalclient, sizeof(internalclient));
           /* some time user only need IPv6 forwarding, in this case 255.255.255.255 will be set as toip. 
           * so we needn't do anything about those entry */
-          if (0 != rc || '\0' == toip[0] || !strcmp("255.255.255.255", toip)) {
-             continue;
+           if (0 != rc || '\0' == internalclient[0] || internalclient[0] == ' ' ){
+             FIREWALL_DEBUG("Port Forwarding internalclient Empty\n");
+          }
+          if(IsFileExists("/tmp/lanClients"))
+          {
+              snprintf(buf, sizeof(buf), "cat /tmp/lanClients | grep -w %s | awk '{print $3}'| tail -1",internalclient);
+              if(!(lanClients = popen(buf, "r")))
+              {
+                  continue;
+              }
+              fgets(toip, sizeof(toip), lanClients);
+              toip[strlen(toip) - 1] = '\0';
+              pclose(lanClients);
+              if ('\0' == toip[0] || toip[0] == ' ')
+              continue;
           }
       }else{
         rc = syscfg_get(namespace, "to_ipv6", toipv6, sizeof(toipv6));
@@ -2997,6 +3013,12 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
 #ifdef FEATURE_MAPT
       FIREWALL_DEBUG("PortMapping:Protocol %s\n" COMMA prot);
 #endif
+      char remote_host[64] = {0};
+      rc = syscfg_get(namespace, "remote_host", remote_host, sizeof(remote_host));
+      if(0 != rc)
+      {
+        FIREWALL_DEBUG("syscfg get failed for remote host\n");
+      }
 
       //PortForwarding in IPv6 is to overwrite the Firewall wan2lan rules
       if(iptype == AF_INET6) {
@@ -3186,10 +3208,18 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
          }
          if (filter_fp) {
             if(strcmp(internal_port, "0")){
-                snprintf(str, sizeof(str),
-                        "-A wan2lan_forwarding_accept -p tcp -m tcp -d %s --dport %s -j xlog_accept_wan2lan", 
-                        toip, internal_port);
-                fprintf(filter_fp, "%s\n", str);
+               if(!strcmp(remote_host, "0.0.0.0"))
+               {
+                       snprintf(str, sizeof(str),
+                               "-A wan2lan_forwarding_accept -p tcp -m tcp -d %s --dport %s -j xlog_accept_wan2lan",
+                               toip, internal_port);
+                       fprintf(filter_fp, "%s\n", str);
+               }else{
+                       snprintf(str, sizeof(str),
+                               "-A wan2lan_forwarding_accept -p tcp -m tcp -s %s -d %s --dport %s -j xlog_accept_wan2lan",
+                               remote_host,toip, internal_port);
+                       fprintf(filter_fp, "%s\n", str);
+               }
 #ifdef PORTMAPPING_2WAY_PASSTHROUGH
             snprintf(str, sizeof(str),
                  "-A lan2wan_forwarding_accept -p tcp -m tcp -s %s --sport %s -j xlog_accept_lan2wan", 
@@ -3197,10 +3227,18 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
             fprintf(filter_fp, "%s\n", str);
 #endif
          }else{
+            if(!strcmp(remote_host, "0.0.0.0"))
+            {
+               snprintf(str, sizeof(str),
+                       "-A wan2lan_forwarding_accept -p tcp -m tcp -d %s --dport %s -j xlog_accept_wan2lan",
+                       toip, external_port);
+               fprintf(filter_fp, "%s\n", str);
+            }else{
             snprintf(str, sizeof(str),
-                      "-A wan2lan_forwarding_accept -p tcp -m tcp -d %s --dport %s -j xlog_accept_wan2lan", 
-                     toip, external_port);
+                       "-A wan2lan_forwarding_accept -p tcp -m tcp -s %s -d %s --dport %s -j xlog_accept_wan2lan",
+                       remote_host, toip, external_port);
             fprintf(filter_fp, "%s\n", str);
+            }
 #ifdef PORTMAPPING_2WAY_PASSTHROUGH
             snprintf(str, sizeof(str),
                  "-A lan2wan_forwarding_accept -p tcp -m tcp -s %s --sport %s -j xlog_accept_lan2wan", 
@@ -3335,10 +3373,18 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
          }
          if (filter_fp) {
             if(strcmp(internal_port, "0")){
+               if(!strcmp(remote_host, "0.0.0.0"))
+               {
                 snprintf(str, sizeof(str),
-                    "-A wan2lan_forwarding_accept -p udp -m udp -d %s --dport %s -j xlog_accept_wan2lan", 
-                    toip, internal_port);
+                        "-A wan2lan_forwarding_accept -p udp -m udp -d %s --dport %s -j xlog_accept_wan2lan",
+                        toip, internal_port);
                 fprintf(filter_fp, "%s\n", str);
+                }else{
+                snprintf(str, sizeof(str),
+                        "-A wan2lan_forwarding_accept -p udp -m udp -s %s -d %s --dport %s -j xlog_accept_wan2lan",
+                        remote_host,toip, internal_port);
+                fprintf(filter_fp, "%s\n", str);
+                }
 #ifdef PORTMAPPING_2WAY_PASSTHROUGH
             snprintf(str, sizeof(str),
                  "-A lan2wan_forwarding_accept -p udp -m udp -s %s --sport %s -j xlog_accept_lan2wan", 
@@ -3346,10 +3392,18 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
             fprintf(filter_fp, "%s\n", str);
 #endif
          }else{
-            snprintf(str, sizeof(str),
-                 "-A wan2lan_forwarding_accept -p udp -m udp -d %s --dport %s -j xlog_accept_wan2lan", 
-                 toip, external_port);
-            fprintf(filter_fp, "%s\n", str);
+           if(!strcmp(remote_host,"0.0.0.0"))
+           {
+               snprintf(str, sizeof(str),
+                       "-A wan2lan_forwarding_accept -p udp -m udp -d %s --dport %s -j xlog_accept_wan2lan",
+                       toip, external_port);
+               fprintf(filter_fp, "%s\n", str);
+           }else{
+               snprintf(str, sizeof(str),
+                       "-A wan2lan_forwarding_accept -p udp -m udp -s %s -d %s --dport %s -j xlog_accept_wan2lan",
+                       remote_host, toip, external_port);
+               fprintf(filter_fp, "%s\n", str);
+           }
 #ifdef PORTMAPPING_2WAY_PASSTHROUGH
             snprintf(str, sizeof(str),
                  "-A lan2wan_forwarding_accept -p udp -m udp -s %s --sport %s -j xlog_accept_lan2wan", 
@@ -3461,18 +3515,34 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
       toipv6[0] = '\0';
       char public_ip[40]; 
       public_ip[0] = '\0';
+      char buf[200] = {'\0'};
+      char internalclient[256]={'\0'};
+      FILE *lanClients;
 
       /* seting IPv4 rule */
       if(iptype == AF_INET){ 
-          rc = syscfg_get(namespace, "to_ip", toip, sizeof(toip));
+          rc = syscfg_get(namespace, "to_ip",internalclient, sizeof(internalclient));
           /* some time user only need IPv6 forwarding, in this case 255.255.255.255 will be set as toip. 
            * so we needn't do anything about those entry */
-          if ( 0 != rc || '\0' == toip[0] || strcmp("255.255.255.255", toip) == 0 ) {
-             continue;
-          }
 #ifdef FEATURE_MAPT
           FIREWALL_DEBUG("PortMapping:Internal Client %s\n" COMMA toip);
 #endif
+        if (0 != rc || '\0' == internalclient[0] || internalclient[0] == ' ' ){
+             FIREWALL_DEBUG("Port Forwarding internalclient Empty\n");
+           }
+           if(IsFileExists("/tmp/lanClients"))
+              {
+                     snprintf(buf, sizeof(buf), "cat /tmp/lanClients | grep -w %s | awk '{print $3}'| tail -1",internalclient);
+                     if(!(lanClients = popen(buf, "r")))
+                     {
+                      continue;
+                     }
+                        fgets(toip, sizeof(toip), lanClients);
+                        toip[strlen(toip) - 1] = '\0';
+                        pclose(lanClients);
+                        if ('\0' == toip[0] || toip[0] == ' ')
+                        continue;
+               }
 
           rc = syscfg_get(namespace, "public_ip", public_ip, sizeof(public_ip));
           /* In older version public ip field is not exist.
@@ -3594,6 +3664,12 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
       FIREWALL_DEBUG("PortMapping:Protocol %s\n" COMMA prot);
 #endif
 
+      char remote_host[64] = {0};
+      rc = syscfg_get(namespace, "remote_host", remote_host, sizeof(remote_host));
+      if(0 != rc)
+      {
+        FIREWALL_DEBUG("syscfg get failed for remote host\n");
+      }
       char target_internal_port[40] = "";
       char match_internal_port[40] = "";
 
@@ -3615,7 +3691,10 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
       else
       {
          // no port translation
-         snprintf(match_internal_port, sizeof(match_internal_port), "%s:%s", sdport, edport);
+         if (strcmp(edport, "0"))
+             snprintf(match_internal_port, sizeof(match_internal_port), "%s:%s", sdport, edport);
+         else
+             snprintf(match_internal_port, sizeof(match_internal_port), "%s", sdport);
       }
 
       //PortForwarding in IPv6 is to overwrite the Firewall wan2lan rules
@@ -3688,12 +3767,22 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
       
       if ((0 == strcmp("both", prot) || 0 == strcmp("tcp", prot)) && (privateIpCheck(toip)))
 	  {
-		 if (isNatReady) {
-            snprintf(str, sizeof(str),
-                     "-A prerouting_fromwan -p tcp -m tcp -d %s --dport %s:%s -j DNAT --to-destination %s%s",
-                     natip4, sdport, edport, toip, target_internal_port);
-            fprintf(nat_fp, "%s\n", str);
-         }
+                if (isNatReady)
+                {
+                    if (strcmp(edport, "0"))
+                    {
+                        snprintf(str, sizeof(str),
+                        "-A prerouting_fromwan -p tcp -m tcp -d %s --dport %s:%s -j DNAT --to-destination %s%s",
+                        natip4, sdport, edport, toip, target_internal_port);
+                    }
+                    else
+                    {
+                        snprintf(str, sizeof(str),
+                        "-A prerouting_fromwan -p tcp -m tcp -d %s --dport %s -j DNAT --to-destination %s%s",
+                        natip4, sdport,toip, target_internal_port);
+                    }
+                    fprintf(nat_fp, "%s\n", str);
+                 }
 
 #ifdef _HUB4_PRODUCT_REQ_
 #ifdef FEATURE_MAPT
@@ -3743,10 +3832,20 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
 #endif //FEATURE_MAPT
 #endif //_HUB4_PRODUCT_REQ_
          if(isHairpin){
-             if (isNatReady) {
-                snprintf(str, sizeof(str),
-                        "-A prerouting_fromlan -p tcp -m tcp -d %s --dport %s:%s -j DNAT --to-destination %s%s",
-                        natip4, sdport, edport, toip, target_internal_port);
+             if (isNatReady)
+             {
+                if (strcmp(edport, "0"))
+                {
+                     snprintf(str, sizeof(str),
+                     "-A prerouting_fromlan -p tcp -m tcp -d %s --dport %s:%s -j DNAT --to-destination %s%s",
+                     natip4, sdport, edport, toip, target_internal_port);
+                }
+                else
+                {
+                     snprintf(str, sizeof(str),
+                     "-A prerouting_fromlan -p tcp -m tcp -d %s --dport %s -j DNAT --to-destination %s%s",
+                     natip4, sdport, toip, target_internal_port);
+                }
                 fprintf(nat_fp, "%s\n", str);
  
                 snprintf(str, sizeof(str),
@@ -3792,10 +3891,18 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
          }
 
          if (filter_fp) {
-            snprintf(str, sizeof(str),
-                    "-A wan2lan_forwarding_accept -p tcp -m tcp -d %s --dport %s -j xlog_accept_wan2lan", 
-                    toip, match_internal_port);
-            fprintf(filter_fp, "%s\n", str);
+            if(!strcmp(remote_host,"0.0.0.0"))
+            {
+               snprintf(str, sizeof(str),
+                       "-A wan2lan_forwarding_accept -p tcp -m tcp -d %s --dport %s -j xlog_accept_wan2lan",
+                       toip, match_internal_port);
+               fprintf(filter_fp, "%s\n", str);
+            }else{
+               snprintf(str, sizeof(str),
+                       "-A wan2lan_forwarding_accept -p tcp -m tcp -s %s -d %s --dport %s -j xlog_accept_wan2lan",
+                       remote_host, toip, match_internal_port);
+               fprintf(filter_fp, "%s\n", str);
+            }
 
 #ifdef PORTMAPPING_2WAY_PASSTHROUGH
             snprintf(str, sizeof(str),
@@ -3807,12 +3914,22 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
       }
       if ((0 == strcmp("both", prot) || 0 == strcmp("udp", prot)) &&  (privateIpCheck(toip)) )
 	  {
-		 if (isNatReady) {
-            snprintf(str, sizeof(str),
-                     "-A prerouting_fromwan -p udp -m udp -d %s --dport %s:%s -j DNAT --to-destination %s%s",
-                     natip4, sdport, edport, toip, target_internal_port);
-            fprintf(nat_fp, "%s\n", str);
-         }
+                if (isNatReady)
+                {
+                    if (strcmp(edport, "0"))
+                    {
+                        snprintf(str, sizeof(str),
+                        "-A prerouting_fromwan -p udp -m udp -d %s --dport %s:%s -j DNAT --to-destination %s%s",
+                        natip4, sdport, edport, toip, target_internal_port);
+                    }
+                    else
+                    {
+                        snprintf(str, sizeof(str),
+                        "-A prerouting_fromwan -p udp -m udp -d %s --dport %s -j DNAT --to-destination %s%s",
+                        natip4, sdport,toip, target_internal_port);
+                    }
+                    fprintf(nat_fp, "%s\n", str);
+                }
  
 #ifdef _HUB4_PRODUCT_REQ_
 #ifdef FEATURE_MAPT
@@ -3863,11 +3980,21 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
 #endif //FEATURE_MAPT
 #endif //_HUB4_PRODUCT_REQ_
          if(isHairpin){
-             if (isNatReady) {
-                snprintf(str, sizeof(str),
-                        "-A prerouting_fromlan -p udp -m udp -d %s --dport %s:%s -j DNAT --to-destination %s%s",
-                        natip4, sdport, edport, toip, target_internal_port);
-                fprintf(nat_fp, "%s\n", str);
+             if (isNatReady)
+             {
+                 if (strcmp(edport, "0"))
+                 {
+                      snprintf(str, sizeof(str),
+                      "-A prerouting_fromlan -p udp -m udp -d %s --dport %s:%s -j DNAT --to-destination %s%s",
+                      natip4, sdport, edport, toip, target_internal_port);
+                 }
+                 else
+                 {
+                      snprintf(str, sizeof(str),
+                      "-A prerouting_fromlan -p udp -m udp -d %s --dport %s -j DNAT --to-destination %s%s",
+                      natip4, sdport,toip, target_internal_port);
+                 }
+                 fprintf(nat_fp, "%s\n", str);
  
                 snprintf(str, sizeof(str),
                     "-A postrouting_tolan -s %s.0/%s -p udp -m udp -d %s --dport %s -j SNAT --to-source %s", 
@@ -3913,10 +4040,18 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
         }
 
         if(filter_fp){
-            snprintf(str, sizeof(str),
-                    "-A wan2lan_forwarding_accept -p udp -m udp -d %s --dport %s -j xlog_accept_wan2lan", 
-                    toip, match_internal_port);
-            fprintf(filter_fp, "%s\n", str);
+           if(!strcmp(remote_host,"0.0.0.0"))
+           {
+               snprintf(str, sizeof(str),
+                       "-A wan2lan_forwarding_accept -p udp -m udp -d %s --dport %s -j xlog_accept_wan2lan",
+                       toip, match_internal_port);
+               fprintf(filter_fp, "%s\n", str);
+           }else{
+               snprintf(str, sizeof(str),
+                       "-A wan2lan_forwarding_accept -p udp -m udp -s %s -d %s --dport %s -j xlog_accept_wan2lan",
+                       remote_host, toip, match_internal_port);
+               fprintf(filter_fp, "%s\n", str);
+         }
 
 #ifdef PORTMAPPING_2WAY_PASSTHROUGH
          snprintf(str, sizeof(str),
