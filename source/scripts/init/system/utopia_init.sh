@@ -502,6 +502,14 @@ if [ -f /nvram/cacert.pem ]; then
 	rm -f /nvram/cacert.pem
 fi
 
+if [ "$BOX_TYPE" = "TCH" ];then
+       cp /proc/rip/0159 /certs/client.crt
+       cp /proc/rip/015a /certs/client.key
+else
+       cp /nvram/client.crt /certs/client.crt
+       cp /nvram/client.key /certs/client.key
+fi
+
 #echo_t "[utopia][init] Starting system logging"
 #$UTOPIA_PATH/service_syslog.sh syslog-start
 
@@ -833,6 +841,18 @@ if [ "$CBF_Defaulted" != "true" ]; then
 fi
 
 syscfg commit
+
+mount-copybind /tmp/ca-certificates.conf /etc/ca-certificates.conf
+source /lib/rdk/getpartnerid.sh
+partnerId=$(getPartnerId)
+if [ "$partnerId" = "telekom-hu" ]; then
+       echo "ca-certs-hu.pem" > /etc/ca-certificates.conf
+       cp /usr/share/ca-certificates/ca-crl-hu.pem /etc/ssl/certs/ca_crl.crt
+else
+       echo "ca-certs-dev.pem" > /etc/ca-certificates.conf
+       cp /usr/share/ca-certificates/ca-crl-dev.pem /etc/ssl/certs/ca_crl.crt
+fi
+update-ca-certificates
 
 #ifdef CISCO_XB3_PLATFORM_CHANGES
 ## Remove after setting last reboot reason
