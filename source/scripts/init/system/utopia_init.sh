@@ -913,3 +913,8 @@ fi
 echo $ICMP_TIMEOUT > /proc/sys/net/netfilter/nf_conntrack_icmp_timeout
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
+
+if [ -f /usr/bin/inotify-minidump-watcher ];then
+       mkdir -p /minidumps
+      /usr/bin/inotify-minidump-watcher /minidumps /lib/rdk/uploadDumps.sh  "\"\" 0" "*.dmp" &
+fi
