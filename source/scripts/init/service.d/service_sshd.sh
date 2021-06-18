@@ -132,9 +132,10 @@ do_start() {
    #wan0 should be in v4
    CM_IP="${CM_IP} `ifconfig ${CMINTERFACE} | grep "inet addr" | awk '/inet/{print $2}'  | cut -f2 -d:`"
    #LAN side
-   LANINTERFACE="brlan0"
-   CM_IP="${CM_IP} `ifconfig ${LANINTERFACE} | grep inet6 | grep Global | awk '/inet6/{print $3}' | cut -d '/' -f1`"
-   CM_IP="${CM_IP} `ifconfig ${LANINTERFACE} | grep "inet addr" | awk '/inet/{print $2}'  | cut -f2 -d:`"
+   #LAN Side SSH blocked
+   #LANINTERFACE="brlan0"
+   #CM_IP="${CM_IP} `ifconfig ${LANINTERFACE} | grep inet6 | grep Global | awk '/inet6/{print $3}' | cut -d '/' -f1`"
+   #CM_IP="${CM_IP} `ifconfig ${LANINTERFACE} | grep "inet addr" | awk '/inet/{print $2}'  | cut -f2 -d:`"
 
    for i in $CM_IP; do
    DROPBEAR_PARAMS_1="/tmp/.dropbear/dropcfg1$$"
@@ -221,10 +222,10 @@ service_start() {
         fi
       done
    fi
-	#SSH_ENABLE=`syscfg get mgmt_wan_sshaccess`
-	CURRENT_WAN_STATE=`sysevent get wan-status`
+	SSH_ENABLE=`syscfg get mgmt_wan_sshaccess`
+#	CURRENT_WAN_STATE=`sysevent get wan-status`
 
-	#if [ "$SSH_ENABLE" = "0" ]; then
+        if [ "$SSH_ENABLE" = "1" ]; then
 
    if ([ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ] || [ "$MODEL_NUM" = "INTEL_PUMA" ]) ;then
         if [ -n "$CURRENT_WAN_STATE" -a "started" = "$CURRENT_WAN_STATE" ]; then
@@ -249,7 +250,7 @@ service_start() {
 		sysevent set ${SERVICE_NAME}-status "started"
 		rm -rf /tmp/.dropbear/*
 
-	#fi
+	fi
 
 }
 
