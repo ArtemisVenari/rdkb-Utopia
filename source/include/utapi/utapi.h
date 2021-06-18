@@ -1177,7 +1177,7 @@ int Utopia_SetDNSEnable(UtopiaContext *ctx, boolean_t enable);
 int Utopia_GetDNSEnable(UtopiaContext *ctx, boolean_t* enable);
 int Utopia_GetDNSServer(UtopiaContext *ctx, DNS_Client_t * dns);
 
-#if defined(DDNS_BROADBANDFORUM)
+#if defined(DDNS_BROADBANDFORUM) || defined(_DT_WAN_Manager_Enable_)
 typedef struct DynamicDnsClient
 {
    unsigned long  InstanceNumber;

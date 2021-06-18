@@ -740,7 +740,7 @@ static struct
     { Utopia_Type_IndexedConfig, Utopia_Event__NONE__,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "end_time",                  UtopiaValue_ParentalControl_ManagedDevice }, /* UtopiaValue_ParentalControl_ManagedDevice_EndTime */
     { Utopia_Type_IndexedConfig, Utopia_Event__NONE__,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "days",                      UtopiaValue_ParentalControl_ManagedDevice }, /* UtopiaValue_ParentalControl_ManagedDevice_Days */
     /* End of parental control */
-#if defined(DDNS_BROADBANDFORUM)
+#if defined(DDNS_BROADBANDFORUM) || defined(_DT_WAN_Manager_Enable_)
 
 { Utopia_Type_Config,        Utopia_Event__NONE__,   Utopia_Static__NONE__, Utopia_For__NONE__,   1, "DynamicDnsClientCount", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_DynamicDnsClientCount */
     { Utopia_Type_IndexedConfig, Utopia_Event__NONE__,   Utopia_Static__NONE__, Utopia_Index_For_Key, 1, "DynamicDnsClient_%d", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_DynamicDnsClient */

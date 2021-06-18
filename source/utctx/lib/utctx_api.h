@@ -585,7 +585,7 @@ typedef enum _UtopiaValue
     UtopiaValue_ParentalControl_ManagedDevice_StartTime,
     UtopiaValue_ParentalControl_ManagedDevice_EndTime,
     UtopiaValue_ParentalControl_ManagedDevice_Days,
-    #if defined(DDNS_BROADBANDFORUM)
+    #if defined(DDNS_BROADBANDFORUM) || defined(_DT_WAN_Manager_Enable_)
     UtopiaValue_DynamicDnsClientCount,
     UtopiaValue_DynamicDnsClient,
     UtopiaValue_DynamicDnsClient_InsNum,
