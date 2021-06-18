@@ -343,6 +343,16 @@ if [ "$BOX_TYPE" == "TCH" -o "$BOX_TYPE" = "SGC" ]; then
     ethswctl -c wan -i eth0 -o enable
 fi
 
+if [ "$BOX_TYPE" == "SGC" ];then
+   if [ "$wantype" == "DSL" ];then
+      ifconfig eth0 down
+      ifconfig eth4 down
+      ethctl eth4 phy-crossbar port 9
+      ifconfig eth0 up
+      ifconfig eth4 up
+  fi
+fi
+
 SYSCFG_LAN_DOMAIN=`syscfg get lan_domain` 
 
 if [ "$SYSCFG_LAN_DOMAIN" == "utopia.net" ]; then
