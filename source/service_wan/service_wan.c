@@ -1198,6 +1198,20 @@ static int wan_addr_set(struct serv_wan *sw)
     if (strlen(val)){
         printf("Setting current_wan_ipaddr  %s\n",val);     
         sysevent_set(sw->sefd, sw->setok, "current_wan_ipaddr", val, 0);
+        // Shared Address Space address range 100.64.0.0/10 as per IANA for Carrier Grade NAT
+        unsigned long cgnat_addr = 0xffffffff, cgnat_mask = 0xffffffff;
+        inet_pton(AF_INET, "100.64.0.0", &cgnat_addr);
+        inet_pton(AF_INET, "255.192.0.0", &cgnat_mask);
+        unsigned long wan_address = 0xffffffff;
+        inet_pton(AF_INET, val, &wan_address);
+        if((wan_address & cgnat_mask) == (cgnat_addr & cgnat_mask)) {
+            if( syscfg_set(NULL, "UseSharedCGNAddress", "true") != 0 && syscfg_commit() != 0)
+                fprintf(stderr, "syscfg_set failed for parameter UseSharedCGNAddress \n");
+        }
+        else {
+            if( syscfg_set(NULL, "UseSharedCGNAddress", "false") != 0 && syscfg_commit() != 0)
+                fprintf(stderr, "syscfg_set failed for parameter UseSharedCGNAddress \n");
+        }
     }
     else
     {

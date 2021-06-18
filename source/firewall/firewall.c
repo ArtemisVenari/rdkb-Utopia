@@ -667,6 +667,7 @@ static char captivePortalEnabled[50]; //to ccheck captive portal is enabled or n
 static char rfCaptivePortalEnabled[50]; //to check RF captive portal is enabled or not
 static int rfstatus = 0;
 static char redirectionFlag[50]; //Captive portal mode flag
+static char sharedCGNAddress[10]; // Shared CGN Address flag as per RFC6598
 
 static char iptables_pri_level[IPT_PRI_MAX];
 static char lxcBridgeName[20];
@@ -2184,6 +2185,7 @@ static int prepare_globals_from_configuration(void)
       }
    }
 
+   syscfg_get(NULL, "UseSharedCGNAddress", sharedCGNAddress, sizeof(sharedCGNAddress));
    syscfg_get(NULL, "cmdiag_ifname", cmdiag_ifname, sizeof(cmdiag_ifname));
    syscfg_get(NULL, "cmdiag_enabled", cmdiag_enabled, sizeof(cmdiag_enabled));
 
@@ -4546,6 +4548,10 @@ static int do_port_forwarding(FILE *nat_fp, FILE *filter_fp)
         FIREWALL_DEBUG("do_port_forwarding : Device is in bridge mode returning\n");  
         return(0);    
    }      
+   if (strcmp(sharedCGNAddress, "true") == 0) { // PortForwarding will not be active when GW has shared CGN address
+       FIREWALL_DEBUG("do_port_forwarding - PortForwarding rules will not be active as GW has shared CGN address\n");
+       return(0);
+   }
    do_single_port_forwarding(nat_fp, filter_fp, AF_INET, NULL);
    do_port_range_forwarding(nat_fp, filter_fp, AF_INET, NULL);
    do_wellknown_ports_forwarding(nat_fp, filter_fp);
@@ -4656,6 +4662,10 @@ static int do_dmz(FILE *nat_fp, FILE *filter_fp)
       return(0);
    } 
  
+   if(strcmp(sharedCGNAddress, "true") == 0) { // DMZ will not be active when GW has shared CGN address
+      FIREWALL_DEBUG("do_dmz - DMZ rules will not be active as GW has shared CGN address\n");
+      return(0);
+    }
    // what is the src ip address to forward to our dmz
    char src_str[64];
    src_str[0] = '\0';
@@ -4779,11 +4789,11 @@ static int do_dmz(FILE *nat_fp, FILE *filter_fp)
          if (isNatReady &&
              strcmp(tohost, "0.0.0.0") != 0) { /* 0.0.0.0 stands for disable in SA-RG-MIB */
             snprintf(str, sizeof(str),
-               "-A prerouting_fromwan_todmz --dst %s -p tcp -m multiport ! --dports %s,%s -j DNAT %s", natip4, Httpport, Httpsport, dst_str);
+               "-A prerouting_fromwan_todmz --dst %s -p tcp -m multiport ! --dports %s,%s,%s -j DNAT %s", natip4, Httpport, Httpsport, bWAN_SSHPort, dst_str);
             fprintf(nat_fp, "%s\n", str);
             
             snprintf(str, sizeof(str),
-               "-A prerouting_fromwan_todmz --dst %s -p udp -m multiport ! --dports %s,%s -j DNAT %s", natip4, Httpport, Httpsport, dst_str);
+               "-A prerouting_fromwan_todmz --dst %s -p udp -m multiport ! --dports %s,%s,%s -j DNAT %s", natip4, Httpport, Httpsport, bWAN_SSHPort, dst_str);
             fprintf(nat_fp, "%s\n", str);
          }
 
@@ -12814,12 +12824,18 @@ static int do_block_ports(FILE *filter_fp)
    /* Blocking zebra ports except for brlan0 interface */
    fprintf(filter_fp, "-A INPUT ! -i brlan0 -p tcp -m tcp --dport 2601 -j DROP\n");
    fprintf(filter_fp, "-A INPUT ! -i brlan0 -p udp -m udp --dport 2601 -j DROP\n");
-   /* Blocking IGD ports except for brlan0 interface */
-   fprintf(filter_fp, "-A INPUT -i lo  -p tcp -m tcp --dport 49152:49153 -j ACCEPT\n");
-   fprintf(filter_fp, "-A INPUT -i lo -p udp -m udp --dport 1900 -j ACCEPT\n");
-
-   fprintf(filter_fp, "-A INPUT ! -i brlan0 -p tcp -m tcp --dport 49152:49153 -j DROP\n");
-   fprintf(filter_fp, "-A INPUT ! -i brlan0 -p udp -m udp --dport 1900 -j DROP\n");
+   if (strcmp(sharedCGNAddress, "true") == 0) { // Block IGD ports when GW has shared CGN address
+       FIREWALL_DEBUG("do_block_ports - UPnP IGD rules will not be active as GW has shared CGN address\n");
+       fprintf(filter_fp, "-A INPUT -p tcp -m tcp --dport 49152:49153 -j DROP\n");
+       fprintf(filter_fp, "-A INPUT -p udp -m udp --dport 1900 -j DROP\n");
+  }
+   else {
+       /* Blocking IGD ports except for brlan0 interface */
+       fprintf(filter_fp, "-A INPUT -i lo  -p tcp -m tcp --dport 49152:49153 -j ACCEPT\n");
+       fprintf(filter_fp, "-A INPUT -i lo -p udp -m udp --dport 1900 -j ACCEPT\n");
+       fprintf(filter_fp, "-A INPUT ! -i brlan0 -p tcp -m tcp --dport 49152:49153 -j DROP\n");
+       fprintf(filter_fp, "-A INPUT ! -i brlan0 -p udp -m udp --dport 1900 -j DROP\n");
+   }
    fprintf(filter_fp, "-A INPUT ! -i brlan0 -p tcp -m tcp --dport 21515 -j DROP\n");
    fprintf(filter_fp, "-A INPUT ! -i brlan0 -p udp -m udp --dport 21515 -j DROP\n");
 
