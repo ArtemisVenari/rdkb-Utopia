@@ -11659,6 +11659,7 @@ static int add_qos_skb_mark(FILE *mangle_fp)
    char psmEntry[512] = {0};
    char wanInterface[32] = {0};
    char SKBMark[32] = {0};
+   char DSCPMark[16] = {0};
    char markingList[32] ={0};
    const char *psmList = "dmsb.wanmanager.if.1.Marking.List";
    const char *wanIfName = "dmsb.wanmanager.if.1.Name";
@@ -11712,10 +11713,23 @@ static int add_qos_skb_mark(FILE *mangle_fp)
                strValue = NULL;
            }
            memset(psmEntry, 0, sizeof(psmEntry));
-           if(vlanID == primary_Vlan_ID)
+           snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.1.Marking.%s.DSCPMark", token);
+           retPsmGet = PSM_VALUE_GET_STRING(psmEntry, strValue);
+           if(retPsmGet == CCSP_SUCCESS && strValue != NULL) { // Get DSCP Mark associated with the interface
+               strncpy(DSCPMark, strValue, sizeof(DSCPMark));
+               Ansc_FreeMemory_Callback(strValue);
+               strValue = NULL;
+           }
+
+           memset(psmEntry, 0, sizeof(psmEntry));
+           if(vlanID == primary_Vlan_ID) {
+               fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o erouter0 --set-dscp-class %s\n", DSCPMark);
                fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o erouter0 --set-class 0:%s\n", SKBMark);
-           else
+           }
+           else {
+               fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o %s.%d --set-dscp-class %s\n", wanInterface, vlanID, DSCPMark);
                fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o %s.%d --set-class 0:%s\n", wanInterface, vlanID, SKBMark);
+           }
 
            token = strtok( NULL, "-" );
            vlanCount++ ;
