@@ -373,6 +373,7 @@ static struct
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "block_httpv6",                     UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_BlockHttpV6 */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "block_p2p",                      UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_BlockP2p */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "block_p2pv6",                      UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_BlockP2pV6 */
+    { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "block_rfc1918", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_BlockRFC1918 */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "firewall_level", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_Level */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "firewall_levelv6", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_LevelV6 */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "firewall_true_static_ip_enable", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_TrueStaticIpEnable */

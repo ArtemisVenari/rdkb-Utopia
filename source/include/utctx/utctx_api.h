@@ -244,6 +244,7 @@ typedef enum _UtopiaValue
     UtopiaValue_Firewall_BlockHttpV6,
     UtopiaValue_Firewall_BlockP2p,
     UtopiaValue_Firewall_BlockP2pV6,
+    UtopiaValue_Firewall_BlockRFC1918,
     UtopiaValue_Firewall_Level,
     UtopiaValue_Firewall_LevelV6,
     UtopiaValue_Firewall_TrueStaticIpEnable,

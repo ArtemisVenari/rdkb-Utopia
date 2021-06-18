@@ -1989,6 +1989,7 @@ int Utopia_SetFirewallSettings (UtopiaContext *ctx, firewall_t fw)
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockCookies, fw.filter_web_cookies);
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockHttp, fw.filter_http_from_wan);
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockP2p, fw.filter_p2p_from_wan);
+     UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockRFC1918, fw.filter_rfc1918_from_wan);
 
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockPingV6, fw.filter_anon_req_v6);
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockMulticastV6, fw.filter_multicast_v6);
@@ -2034,6 +2035,8 @@ int Utopia_GetFirewallSettings (UtopiaContext *ctx, firewall_t *fw)
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockIdent, &fw->filter_ident);
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockP2p, &fw->filter_p2p_from_wan);
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockHttp, &fw->filter_http_from_wan);
+    Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockP2pV6, &fw->filter_rfc1918_from_wan);
+    Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockRFC1918, &fw->filter_rfc1918_from_wan);
 
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockPingV6, &fw->filter_anon_req_v6);
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockMulticastV6, &fw->filter_multicast_v6);

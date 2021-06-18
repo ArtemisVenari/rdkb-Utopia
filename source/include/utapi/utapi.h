@@ -919,6 +919,7 @@ typedef struct firewall {
     boolean_t filter_http_from_wan_v6;
     boolean_t filter_p2p_from_wan;
     boolean_t filter_p2p_from_wan_v6;
+    boolean_t filter_rfc1918_from_wan;
     boolean_t true_static_ip_enable;
     boolean_t true_static_ip_enable_v6;
     boolean_t smart_pkt_dection_enable;

@@ -883,4 +883,8 @@ $UTOPIA_PATH/service_multinet_exec set_multicast_mac &
 #echo_t "[utopia][init] started dropbear process"
 #/etc/utopia/service.d/service_sshd.sh sshd-start &
 
+# Port scan protection ipset rules
+ipset create port_scanners hash:ip family inet hashsize 32768 maxelem 65536 timeout 120
+ipset create scanned_ports hash:ip,port family inet hashsize 32768 maxelem 65536 timeout 60
+
 echo 1 > /proc/sys/net/ipv4/ip_forward

@@ -2782,11 +2782,11 @@ static int prepare_globals_from_configuration(void)
    snprintf(str, sizeof(str),
             "-A xlog_accept_wan2self -j ACCEPT");
    fprintf(fp, "%s\n", str);
-#if !(defined INTEL_PUMA7) && !(defined _COSA_BCM_ARM_)
+//#if !(defined INTEL_PUMA7) && !(defined _COSA_BCM_ARM_)
    snprintf(str, sizeof(str),
             "-A xlog_drop_wan2lan -j DROP");
    fprintf(fp, "%s\n", str);
-#endif
+//#endif
    snprintf(str, sizeof(str),
             "-A xlog_drop_wan2self -j DROP");
    fprintf(fp, "%s\n", str);
@@ -5379,6 +5379,7 @@ static int do_lan2self_attack(FILE *fp)
 {
    /* LAND ATTACK */
    char str[MAX_QUERY];
+   char *logRateLimit = "-m limit --limit 6/h --limit-burst 1";
 // TODO: Add for each lan ip
            FIREWALL_DEBUG("Entering do_lan2self_attack\n");       
  snprintf(str, sizeof(str),
@@ -5396,7 +5397,33 @@ static int do_lan2self_attack(FILE *fp)
    snprintf(str, sizeof(str),
             "-A lanattack -d 127.0.0.1 -j xlog_drop_lanattack");
    fprintf(fp, "%s\n", str);
-           FIREWALL_DEBUG("Exiting do_lan2self_attack\n");       
+           FIREWALL_DEBUG("Exiting do_lan2self_attack\n");
+
+   /*
+    * Log probable DoS attack
+    */
+   //Smurf attack, actually the below rules are to prevent us from being the middle-man host
+   fprintf(fp, "-A lanattack -p icmp -m icmp --icmp-type address-mask-request %s -j LOG --log-prefix \"DoS Attack - Smurf Attack\"\n", logRateLimit);
+   fprintf(fp, "-A lanattack -p icmp -m icmp --icmp-type address-mask-request -j xlog_drop_lanattack\n");
+   fprintf(fp, "-A lanattack -p icmp -m icmp --icmp-type timestamp-request %s -j LOG --log-prefix \"DoS Attack - Smurf Attack\"\n", logRateLimit);
+   fprintf(fp, "-A lanattack -p icmp -m icmp --icmp-type timestamp-request -j xlog_drop_lanattack\n");
+
+   //ICMP Flooding. Mark traffic bit rate > 5/s as attack and limit 6 log entries per hour
+   fprintf(fp, "-A lanattack -p icmp -m limit --limit 5/s --limit-burst 10 -j RETURN\n"); //stop traveling the rest of the wanattack chain
+   fprintf(fp, "-A lanattack -p icmp %s -j LOG --log-prefix \"DoS Attack - ICMP Flooding\"\n", logRateLimit);
+   fprintf(fp, "-A lanattack -p icmp -j xlog_drop_lanattack\n");
+
+   //TCP SYN Flooding
+   fprintf(fp, "-A lanattack -p tcp --syn -m limit --limit 10/s --limit-burst 20 -j RETURN\n");
+   fprintf(fp, "-A lanattack -p tcp --syn %s -j LOG --log-prefix \"DoS Attack - TCP SYN Flooding\"\n", logRateLimit);
+   fprintf(fp, "-A lanattack -p tcp --syn -j xlog_drop_lanattack\n");
+
+   //LAND Aattack - sending a spoofed TCP SYN pkt with the target host's IP address to an open port as both source and destination
+   /* Allow multicast packet through */
+   fprintf(fp, "-A lanattack -p udp -s %s -d 224.0.0.0/8 -j RETURN\n", lan_ipaddr);
+   fprintf(fp, "-A lanattack -s %s %s -j LOG --log-prefix \"DoS Attack - LAND Attack\"\n", lan_ipaddr, logRateLimit);
+   fprintf(fp, "-A lanattack -s %s -j xlog_drop_lanattack\n", lan_ipaddr);
+
    return(0);
 }
 
@@ -5495,6 +5522,33 @@ static int do_lan2self_by_wanip6(FILE *filter_fp)
         fprintf(filter_fp, "-A INPUT -i %s -d %s -p tcp --match multiport --dports 23,22,80,443,161 -j LOG_INPUT_DROP\n", lan_ifname, ecm_wan_ipv6[i]);
     }
            FIREWALL_DEBUG("Exiting do_lan2self_by_wanip6\n");     
+}
+
+ /*
+ ===============================================================================
+
+        Function for Port Scan protection
+ ===============================================================================
+ */
+
+static int port_scan_rules(FILE *fp)
+ {
+     char str[MAX_QUERY];
+     char *logRateLimit = "-m limit --limit 6/m --limit-burst 5";
+     fprintf(fp, "-A portscan -p tcp --tcp-flags ALL FIN,PSH,URG %s -j LOG --log-prefix \"XMAS SCAN\"\n",logRateLimit);
+     fprintf(fp, "-A portscan -p tcp --tcp-flags ALL FIN,PSH,URG -j DROP\n");
+     fprintf(fp, "-A portscan -p tcp --tcp-flags ACK,FIN FIN %s -j LOG --log-prefix \"FIN SCAN\"\n", logRateLimit);
+     fprintf(fp, "-A portscan -p tcp --tcp-flags ACK,FIN FIN -j DROP\n");
+     fprintf(fp, "-A portscan ! -i lo -p tcp --tcp-flags ALL ACK -m state --state NEW %s -j LOG --log-prefix \"ACK SCAN\"\n", logRateLimit);
+     fprintf(fp, "-A portscan ! -i lo -p tcp --tcp-flags ALL ACK -m state --state NEW -j DROP\n");
+     fprintf(fp, "-A portscan -p tcp --tcp-flags ALL NONE %s -j LOG --log-prefix \"NULL SCAN\"\n", logRateLimit);
+     fprintf(fp, "-A portscan -p tcp --tcp-flags ALL NONE -j DROP\n");
+     // Port scan protection with ipset and iptables
+     fprintf(fp, "-A portscan -m state --state NEW -m set ! --match-set scanned_ports src -d %s -m hashlimit --hashlimit-above 30/min --hashlimit-burst 20 --hashlimit-mode srcip --hashlimit-name portscan --hashlimit-htable-expire 4000 -j SET --add-set port_scanners src --exist\n", current_wan_ipaddr);
+     fprintf(fp, "-A portscan -m state --state NEW -m set --match-set port_scanners src -d %s -m limit --limit 30/min --limit-burst 5 -j LOG --log-prefix \" PortScan Attack\"\n", current_wan_ipaddr);
+     fprintf(fp, "-A portscan -m state --state NEW -m set --match-set port_scanners src -j DROP\n");
+     fprintf(fp, "-A portscan -m state --state NEW -j SET --add-set scanned_ports src,dst\n");
+     return 0;
 }
 
 #if defined (MULTILAN_FEATURE)
@@ -5805,10 +5859,6 @@ static int do_wan2self_attack(FILE *fp)
    {
    	fprintf(fp, "-A wanattack -p icmp -m icmp --icmp-type address-mask-request %s -j LOG --log-prefix \"DoS Attack - Smurf Attack\" --log-level 7\n", logRateLimit);
    }
-   else
-   {
-   	fprintf(fp, "-A wanattack -p icmp -m icmp --icmp-type address-mask-request %s -j ULOG --ulog-prefix \"DoS Attack - Smurf Attack\" --ulog-cprange 50\n", logRateLimit);
-   }
 #elif defined(_PLATFORM_RASPBERRYPI_)
    fprintf(fp, "-A wanattack -p icmp -m icmp --icmp-type address-mask-request %s -j LOG --log-prefix \"DoS Attack - Smurf Attack\"\n", logRateLimit);
 #else
@@ -5821,10 +5871,6 @@ static int do_wan2self_attack(FILE *fp)
    if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0))
    {
    	fprintf(fp, "-A wanattack -p icmp -m icmp --icmp-type timestamp-request %s -j LOG --log-prefix \"DoS Attack - Smurf Attack\" --log-level 7\n", logRateLimit);
-   }
-   else
-   {
-   	fprintf(fp, "-A wanattack -p icmp -m icmp --icmp-type timestamp-request %s -j ULOG --ulog-prefix \"DoS Attack - Smurf Attack\" --ulog-cprange 50\n", logRateLimit);
    }
 #elif defined(_PLATFORM_RASPBERRYPI_)
    fprintf(fp, "-A wanattack -p icmp -m icmp --icmp-type timestamp-request %s -j LOG --log-prefix \"DoS Attack - Smurf Attack\"\n", logRateLimit);
@@ -5842,15 +5888,12 @@ static int do_wan2self_attack(FILE *fp)
    {
    	fprintf(fp, "-A wanattack -p icmp %s -j LOG --log-prefix \"DoS Attack - ICMP Flooding\" --log-level 7\n", logRateLimit);
    }
-   else
-   {
-   	fprintf(fp, "-A wanattack -p icmp %s -j ULOG --ulog-prefix \"DoS Attack - ICMP Flooding\" --ulog-cprange 50\n", logRateLimit);
-   }
 #elif defined(_PLATFORM_RASPBERRYPI_)
    fprintf(fp, "-A wanattack -p icmp %s -j LOG --log-prefix \"DoS Attack - ICMP Flooding\" \n", logRateLimit);
 #else
    fprintf(fp, "-A wanattack -p icmp %s -j ULOG --ulog-prefix \"DoS Attack - ICMP Flooding\" --ulog-cprange 50\n", logRateLimit);
 #endif /*_HUB4_PRODUCT_REQ_*/
+   fprintf(fp, "-A wanattack -p icmp %s -j LOG --log-prefix \"DoS Attack - ICMP Flooding\" --log-level 7\n", logRateLimit);
    fprintf(fp, "-A wanattack -p icmp -j xlog_drop_wanattack\n");
 
    //TCP SYN Flooding
@@ -5862,15 +5905,12 @@ static int do_wan2self_attack(FILE *fp)
    {
    	fprintf(fp, "-A wanattack -p tcp --syn %s -j LOG --log-prefix \"DoS Attack - TCP SYN Flooding\" --log-level 7\n", logRateLimit);
    }
-   else
-   {
-   	fprintf(fp, "-A wanattack -p tcp --syn %s -j ULOG --ulog-prefix \"DoS Attack - TCP SYN Flooding\" --ulog-cprange 50\n", logRateLimit);
-   }
 #elif defined(_PLATFORM_RASPBERRYPI_)
    fprintf(fp, "-A wanattack -p tcp --syn %s -j LOG --log-prefix \"DoS Attack - TCP SYN Flooding\" \n", logRateLimit);
 #else
    fprintf(fp, "-A wanattack -p tcp --syn %s -j ULOG --ulog-prefix \"DoS Attack - TCP SYN Flooding\" --ulog-cprange 50\n", logRateLimit);
 #endif /*_HUB4_PRODUCT_REQ_*/
+   fprintf(fp, "-A wanattack -p tcp --syn %s -j LOG --log-prefix \"DoS Attack - TCP SYN Flooding\" --log-level 7\n", logRateLimit);
    fprintf(fp, "-A wanattack -p tcp --syn -j xlog_drop_wanattack\n");
 
    //LAND Aattack - sending a spoofed TCP SYN pkt with the target host's IP address to an open port as both source and destination
@@ -5884,15 +5924,12 @@ static int do_wan2self_attack(FILE *fp)
        {
        	fprintf(fp, "-A wanattack -s %s %s -j LOG --log-prefix \"DoS Attack - LAND Attack\" --log-level 7\n", current_wan_ipaddr, logRateLimit);
        }
-       else
-       {
-       	fprintf(fp, "-A wanattack -s %s %s -j ULOG --ulog-prefix \"DoS Attack - LAND Attack\" --ulog-cprange 50\n", current_wan_ipaddr, logRateLimit);
-       }
 #elif defined(_PLATFORM_RASPBERRYPI_)
    fprintf(fp, "-A wanattack -s %s %s -j LOG --log-prefix \"DoS Attack - LAND Attack\" \n", current_wan_ipaddr, logRateLimit);
 #else
        fprintf(fp, "-A wanattack -s %s %s -j ULOG --ulog-prefix \"DoS Attack - LAND Attack\" --ulog-cprange 50\n", current_wan_ipaddr, logRateLimit);
 #endif /*_HUB4_PRODUCT_REQ_*/
+       fprintf(fp, "-A wanattack -s %s %s -j LOG --log-prefix \"DoS Attack - LAND Attack\" --log-level 7\n", current_wan_ipaddr, logRateLimit);
        fprintf(fp, "-A wanattack -s %s -j xlog_drop_wanattack\n", current_wan_ipaddr);
    }
 #ifdef _HUB4_PRODUCT_REQ_
@@ -5911,7 +5948,7 @@ static int do_wan2self_attack(FILE *fp)
 
    /*
     * Reject packets from RFC1918 class networks (i.e., spoofed)
-    */
+
    if (isRFC1918Blocked) {
       snprintf(str, sizeof(str),
                "-A wanattack -s 10.0.0.0/8 -j xlog_drop_wanattack");
@@ -5965,6 +6002,7 @@ static int do_wan2self_attack(FILE *fp)
                "-A wanattack -d 255.255.255.255  -j xlog_drop_wanattack");
       fprintf(fp, "%s\n", str);
    }
+   */
 
    /*
     * TCP reset attack
@@ -6722,6 +6760,7 @@ static int do_wan2self(FILE *mangle_fp, FILE *nat_fp, FILE *filter_fp)
   //       FIREWALL_DEBUG("Entering do_wan2self\n");    
    do_wan2self_allow(filter_fp);
    do_wan2self_attack(filter_fp);
+   port_scan_rules(mangle_fp);
    do_wan2self_ports(mangle_fp, nat_fp, filter_fp);
    do_mgmt_override(nat_fp);
    do_remote_access_control(nat_fp, filter_fp, AF_INET);
@@ -8524,7 +8563,7 @@ static int do_dns_route(FILE *nat_fp, int iptype) {
  *     0               : done
  */
 
-static int do_parcon_mgmt_device(FILE *fp, int iptype, FILE *cron_fp);
+static int do_parcon_mgmt_device(FILE *fp, FILE *filter_fp, int iptype, FILE *cron_fp);
 static int do_parcon_device_cloud_mgmt(FILE *fp, int iptype, FILE *cron_fp);
 static int do_parcon_mgmt_service(FILE *fp, int iptype, FILE *cron_fp);
 static int do_parcon_mgmt_site_keywd(FILE *fp, FILE *nat_fp, int iptype, FILE *cron_fp);
@@ -8557,7 +8596,7 @@ static int do_parental_control(FILE *fp,FILE *nat_fp, int iptype) {
 			do_parcon_device_cloud_mgmt(nat_fp, iptype, cron_fp);
 		}
 		else
-    		do_parcon_mgmt_device(nat_fp, iptype, cron_fp);
+    		do_parcon_mgmt_device(nat_fp, fp, iptype, cron_fp);
 	}
 	else
 	{
@@ -8566,7 +8605,7 @@ static int do_parental_control(FILE *fp,FILE *nat_fp, int iptype) {
 		do_parcon_device_cloud_mgmt(nat_fp,iptype, NULL);
 		}
 		else
-		do_parcon_mgmt_device(nat_fp,iptype, NULL);
+		do_parcon_mgmt_device(nat_fp, fp, iptype, NULL);
 		
 	}
 #ifndef CONFIG_CISCO_FEATURE_CISCOCONNECT
@@ -8584,7 +8623,7 @@ static int do_parental_control(FILE *fp,FILE *nat_fp, int iptype) {
 /*
  * add parental control managed device rules
  */
-static int do_parcon_mgmt_device(FILE *fp, int iptype, FILE *cron_fp)
+static int do_parcon_mgmt_device(FILE *fp, FILE *filter_fp, int iptype, FILE *cron_fp)
 {
    int rc,flag = 0;
    char query[MAX_QUERY];
@@ -8636,6 +8675,7 @@ static int do_parcon_mgmt_device(FILE *fp, int iptype, FILE *cron_fp)
          if(flag == 1)
          {
             fprintf(fp, "-A prerouting_devices -p tcp -m mac --mac-source %s -j ACCEPT\n",query);
+            fprintf(filter_fp, "-A lan2wan_pc_device -m mac --mac-source %s -j ACCEPT\n",query);
 #if defined(_PLATFORM_RASPBERRYPI_) || defined(_PLATFORM_TURRIS_)
            if(MD_flag == FALSE)
            {
@@ -8659,15 +8699,8 @@ static int do_parcon_mgmt_device(FILE *fp, int iptype, FILE *cron_fp)
 			fprintf(fp, "-A %s -j prerouting_redirect\n", drop_log);
             fprintf(fp, "-A prerouting_devices -p tcp -m mac --mac-source %s -j %s\n",query,drop_log);
             fprintf(fp, "-A prerouting_devices -p udp -m mac --mac-source %s -j %s\n",query,drop_log);            
+            fprintf(filter_fp, "-A lan2wan_pc_device -m mac --mac-source %s -j DROP\n",query);
 #endif /* 0 */
-#if defined(_PLATFORM_RASPBERRYPI_) || defined(_PLATFORM_TURRIS_)
-           if(MD_flag == TRUE)
-           {
-           fprintf(fp, "-I INPUT -p tcp -m tcp --dport 21515 -j DROP\n",query);
-           fprintf(fp, "-I INPUT -p udp -m udp --dport 21515 -j DROP\n",query);
-           MD_flag = FALSE;
-           }
-#endif
             if(cron_fp)
             {
                system("touch /tmp/conn_mac");
@@ -8691,6 +8724,7 @@ static int do_parcon_mgmt_device(FILE *fp, int iptype, FILE *cron_fp)
 		fprintf(fp, "-A %s -j prerouting_redirect\n", drop_log);
 
         fprintf(fp, "-A prerouting_devices -p tcp -j %s\n",drop_log);        
+        fprintf(filter_fp, "-A lan2wan_pc_device -j REJECT\n");
 #endif /* 0 */
       }
    }
@@ -9781,6 +9815,12 @@ static int do_lan2wan_misc(FILE *filter_fp)
    return(0);
 }
 
+static void do_add_TCP_MSS_rules(FILE *mangle_fp)
+{
+       fprintf(mangle_fp, "-I FORWARD -o %s -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n", current_wan_ifname);
+       fprintf(mangle_fp, "-I OUTPUT -o %s -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n",current_wan_ifname);
+}
+
 /*
  *  Procedure     : do_lan2wan
  *  Purpose       : prepare the iptables-restore file that establishes all
@@ -9803,6 +9843,7 @@ static int do_lan2wan(FILE *mangle_fp, FILE *filter_fp, FILE *nat_fp)
    do_lan2wan_disable(filter_fp);
    do_parental_control(filter_fp, nat_fp, 4);
 
+   do_add_TCP_MSS_rules(mangle_fp);
    /* XDNS - route dns req though dnsmasq */
 #ifdef XDNS_ENABLE
    do_dns_route(nat_fp, 4);
@@ -9840,8 +9881,12 @@ static void add_usgv2_wan2lan_general_rules(FILE *fp)
 {
    FIREWALL_DEBUG("Entering add_usgv2_wan2lan_general_rules\n"); 
     fprintf(fp, "-A wan2lan_misc -m state --state RELATED,ESTABLISHED -j ACCEPT\n");
+   if (isDmzEnabled) {
+            fprintf(fp, "-A wan2lan_misc -j wan2lan_dmz\n");
+        }
+   fprintf(fp, "-A wan2lan_misc -j xlog_drop_wan2lan\n");
 
-    if (strncasecmp(firewall_level, "High", strlen("High")) == 0) {
+/*    if (strncasecmp(firewall_level, "High", strlen("High")) == 0) {
         if (isDmzEnabled) {
             fprintf(fp, "-A wan2lan_misc -j wan2lan_dmz\n");
         }
@@ -9890,7 +9935,7 @@ static void add_usgv2_wan2lan_general_rules(FILE *fp)
         if(isMulticastBlocked) {
             fprintf(fp, "-A wan2lan_misc -p 2 -j xlog_drop_wan2lan\n"); // IGMP
         }
-    }
+    } */
    FIREWALL_DEBUG("Exiting add_usgv2_wan2lan_general_rules\n"); 
 }
 
@@ -11341,6 +11386,106 @@ static void do_ipv4_UIoverWAN_filter(FILE* fp) {
       }
         FIREWALL_DEBUG("Exiting do_ipv4_UIoverWAN_filter \n"); 
 }
+
+//zqiu:
+static int prepare_xconf_rules(FILE *mangle_fp) {
+  /*ADDED TO SUPPORT XCONF SERVER REACHABILITY
+   * All egress traffic from the erouter0 interface
+   * is marked with AF22
+   */
+
+   //zqiu: RDKB-4519
+   //fprintf(mangle_fp, "-A FORWARD -j DSCP --set-dscp 0x0\n");
+  char buf[64]={0}, initialforwardedmark[64], initialoutputmark[64];
+  memset(initialforwardedmark,0,sizeof(initialforwardedmark));
+  memset(initialoutputmark,0,sizeof(initialoutputmark));
+  strncpy(initialforwardedmark, "cs0", sizeof(initialforwardedmark));
+  strncpy(initialoutputmark, "af22", sizeof(initialoutputmark));
+  syscfg_get(NULL,"SyndicationFlowControlEnable",buf, sizeof(buf));
+  if( buf[0] != '\0' )
+  {
+    if (strcmp(buf, "true") == 0)
+    {
+      if (syscfg_get( NULL, "DSCP_InitialForwardedMark", buf, sizeof(buf)) == 0)
+      {
+         if (buf[0] != '\0')
+        {
+          strncpy(initialforwardedmark, buf, sizeof(initialforwardedmark));
+        }
+      }
+      memset(buf, 0, sizeof(buf));
+      if (syscfg_get( NULL, "DSCP_InitialOutputMark", buf, sizeof(buf)) == 0)
+      {
+        if (buf[0] != '\0')
+        {
+          strncpy(initialoutputmark, buf, sizeof(initialoutputmark));
+        }
+      }
+    }
+  }
+#if defined(_COSA_BCM_MIPS_)
+   fprintf(mangle_fp, "-A FORWARD -m physdev --physdev-in emta0 -j ACCEPT\n");
+#endif
+   fprintf(mangle_fp, "-A FORWARD -m state --state NEW -j DSCP --set-dscp-class %s\n",initialoutputmark);
+//#if ! defined (INTEL_PUMA7) && ! defined (_COSA_BCM_ARM_)
+   fprintf(mangle_fp, "-A FORWARD -m state ! --state NEW -j DSCP  --set-dscp 0x0\n");
+//#endif
+   /**
+    * RDKB-15072 - Explicitly specify proticol instead of common rule as workaround to overcome CMTS issue.
+    **/
+   fprintf(mangle_fp, "-A OUTPUT -o erouter0 -j DSCP --protocol udp --set-dscp-class %s\n",initialoutputmark);
+   fprintf(mangle_fp, "-A OUTPUT -o erouter0 -j DSCP --protocol tcp --set-dscp-class %s\n",initialoutputmark);
+
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -p gre -j DSCP --set-dscp %d \n",greDscp);
+   /**
+    * Reject packets from RFC1918 class networks (i.e., spoofed)
+    **/
+   if (isRFC1918Blocked) {
+     //Downstream packets with a LAN source address
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 10.0.0.0/8 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 169.254.0.0/16 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 172.16.0.0/12 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 192.168.0.0/16 -j DROP\n");
+
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 224.0.0.0/4 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -d 224.0.0.0/4 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 240.0.0.0/5 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -d 240.0.0.0/5 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 0.0.0.0/8 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -d 0.0.0.0/8 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -d 239.255.255.0/24 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -d 255.255.255.255  -j DROP\n");
+
+     //Packets with a broadcast source address
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 239.255.255.0/24 -j DROP\n");
+     fprintf(mangle_fp, "-A PREROUTING -i erouter0 -s 255.255.255.255  -j DROP\n");
+   }
+   //Invalid Packets
+   fprintf(mangle_fp, "-A PREROUTING -j portscan\n");
+   fprintf(mangle_fp, "-A PREROUTING -i erouter0 -m state --state INVALID  -j DROP\n");
+   fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class af32 -j CONNMARK --set-mark 0xA/0xFF\n");
+   fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class cs1 -j CONNMARK --set-mark 0xB/0xFF\n");
+   fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class cs5 -j CONNMARK --set-mark 0xC/0xFF\n");
+   fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class %s -j CONNMARK --set-mark 0xD/0xFF\n",initialoutputmark);
+   //zqiu: RDKB-11338
+   fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class %s -j CONNMARK --set-mark 0x1A/0xFF\n",initialforwardedmark);
+   fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class cs4 -j CONNMARK --set-mark 0x1B/0xFF\n");
+   fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class af41 -j CONNMARK --set-mark 0x1C/0xFF\n");
+   fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class cs3 -j CONNMARK --set-mark 0x1D/0xFF\n");
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0x1D/0xFF  -j DSCP --set-dscp-class cs3\n");
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0x1C/0xFF -j DSCP --set-dscp-class af41\n");
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0x1B/0xFF -j DSCP --set-dscp-class cs4\n");
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0x1A/0xFF -j DSCP --set-dscp-class %s\n",initialforwardedmark);
+
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0xA/0xFF  -j DSCP --set-dscp-class af32\n");
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0xB/0xFF -j DSCP --set-dscp-class cs1\n");
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0xC/0xFF -j DSCP --set-dscp-class cs5\n");
+   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0xD/0xFF -j DSCP --set-dscp-class %s\n",initialoutputmark);
+
+   /*XCONF RULES END*/
+   return 0;
+}
+
 /*
  *  Procedure     : prepare_subtables
  *  Purpose       : prepare the iptables-restore file that establishes all
@@ -11406,6 +11551,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(mangle_fp, "%s\n", ":prerouting_trigger - [0:0]");
 #endif
 #endif
+   fprintf(mangle_fp, "%s\n", ":portscan - [0:0]");
    fprintf(mangle_fp, "%s\n", ":prerouting_qos - [0:0]");
    fprintf(mangle_fp, "%s\n", ":postrouting_qos - [0:0]");
    fprintf(mangle_fp, "%s\n", ":postrouting_lan2lan - [0:0]");
@@ -11519,14 +11665,14 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    char IPv4[17] = "0"; 
 
    //RDKB-25069 - Lan Admin page should able to access from connected clients.
-   fprintf(nat_fp, "-A prerouting_redirect -i %s -p tcp --dport 443 -d %s -j DNAT --to-destination %s\n",lan_ifname,lan_ipaddr,lan_ipaddr);
+   fprintf(nat_fp, "-A prerouting_redirect -i %s -p tcp --dport 443 -d %s -j DNAT --to-destination %s:21516\n",lan_ifname,lan_ipaddr,lan_ipaddr);
      
    syscfg_set(NULL, "HTTP_Server_IP", lan_ipaddr);
    fprintf(nat_fp, "-A prerouting_redirect -p tcp --dport 80 -j DNAT --to-destination %s:21515\n",lan_ipaddr);
 
    //IPv4[0] = '\0';
    syscfg_set(NULL, "HTTPS_Server_IP", lan_ipaddr);
-   fprintf(nat_fp, "-A prerouting_redirect -p tcp --dport 443 -j DNAT --to-destination %s:21515\n",lan_ipaddr);
+   fprintf(nat_fp, "-A prerouting_redirect -p tcp --dport 443 -j DNAT --to-destination %s:21516\n",lan_ipaddr);
 
    //IPv4[0] = '\0';
    syscfg_set(NULL, "Default_Server_IP", lan_ipaddr);
@@ -11826,12 +11972,6 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
 #if !defined(_COSA_INTEL_XB3_ARM_)
    filterPortMap(filter_fp);
 #endif
-#if defined(_COSA_BCM_ARM_) && !defined(_PLATFORM_RASPBERRYPI_)
-   fprintf(filter_fp, "-A INPUT -s 172.31.255.40/32 -p tcp -m tcp --dport 9000 -j ACCEPT\n");
-   fprintf(filter_fp, "-A INPUT -s 172.31.255.40/32 -p udp -m udp --dport 9000 -j ACCEPT\n");
-   fprintf(filter_fp, "-A INPUT -p tcp -m tcp --dport 9000 -j REJECT\n");
-   fprintf(filter_fp, "-A INPUT -p udp -m udp --dport 9000 -j REJECT\n");
-#endif
 
    // Allow local loopback traffic 
    fprintf(filter_fp, "-A INPUT -i lo -s 127.0.0.0/8 -j ACCEPT\n");
@@ -12045,6 +12185,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
 #endif
 
 #if defined(_COSA_BCM_ARM_)
+   fprintf(filter_fp, "-I FORWARD -m conntrack --ctstate INVALID -j DROP\n");
    fprintf(filter_fp, "-I FORWARD -d 192.168.100.1/32 -i %s -j DROP\n", lan_ifname);
    fprintf(filter_fp, "-I FORWARD -d 172.31.0.0/16 -i %s -j DROP\n", lan_ifname);
 #endif
@@ -12141,13 +12282,6 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    }
 
    //open port for DHCP
-   if(!isBridgeMode) {
-       fprintf(filter_fp, "-A general_input -i %s -p udp --dport 68 -j ACCEPT\n", current_wan_ifname);
-#if !defined(_HUB4_PRODUCT_REQ_)
-       fprintf(filter_fp, "-A general_input -i %s -p udp --dport 68 -j ACCEPT\n", ecm_wan_ifname);
-       fprintf(filter_fp, "-A general_input -i %s -p udp --dport 68 -j ACCEPT\n", emta_wan_ifname);
-#endif /*_HUB4_PRODUCT_REQ_*/
-   }
    fprintf(filter_fp, "-A general_input -i %s -p udp -m udp --dport 161 -j xlog_drop_lan2self\n", lan_ifname);
 #if defined (MULTILAN_FEATURE)
    fprintf(filter_fp, "-A lan2self -j lan2self_by_wanip\n");
@@ -12782,6 +12916,7 @@ static int prepare_disabled_ipv4_firewall(FILE *raw_fp, FILE *mangle_fp, FILE *n
    fprintf(mangle_fp, "%s\n", ":prerouting_trigger - [0:0]");
 #endif
 #endif
+   fprintf(mangle_fp, "%s\n", ":portscan - [0:0]");
    fprintf(mangle_fp, "%s\n", ":prerouting_qos - [0:0]");
    fprintf(mangle_fp, "%s\n", ":postrouting_qos - [0:0]");
    fprintf(mangle_fp, "%s\n", ":postrouting_lan2lan - [0:0]");
@@ -13165,6 +13300,7 @@ static void do_ipv6_sn_filter(FILE* fp) {
     char ifIpv6AddrKey[64];
     fprintf(fp, "*mangle\n");
     
+   fprintf(fp, "%s\n", ":portscan - [0:0]");
    fprintf(fp, "%s\n", ":postrouting_qos - [0:0]");
     
     for (i = 0; i < numifs; ++i) {
@@ -13264,7 +13400,7 @@ static void do_ipv6_nat_table(FILE* fp)
 
    fprintf(fp, "-A prerouting_redirect -p tcp --dport 80 -j DNAT --to-destination [%s]:21515\n",IPv6);
  	
-   fprintf(fp, "-A prerouting_redirect -p tcp --dport 443 -j DNAT --to-destination [%s]:21515\n",IPv6);
+   fprintf(fp, "-A prerouting_redirect -p tcp --dport 443 -j DNAT --to-destination [%s]:21516\n",IPv6);
       
    fprintf(fp, "-A prerouting_redirect -p tcp -j DNAT --to-destination [%s]:21515\n",IPv6);
    fprintf(fp, "-A prerouting_redirect -p udp ! --dport 53 -j DNAT --to-destination [%s]:21515\n",IPv6);
@@ -13722,7 +13858,10 @@ static void do_ipv6_filter_table(FILE *fp){
 
 #if !defined(_PLATFORM_IPQ_)
       // Block the evil routing header type 0
-      fprintf(fp, "-A INPUT -m rt --rt-type 0 -j DROP\n");
+      //According to RFC-5095, section 3, packet is dropped if segleft=0 and there is no next header in validating packet.
+      fprintf(fp, "-A INPUT -m rt --rt-type 0 --rt-segsleft 0 -m ipv6header --header none -j DROP\n");
+      //According to RFC-5095, section 3, if segleft is non-zero, the node must discard the packet and send an ICMP Parameter Problem.
+      fprintf(fp, "-A INPUT -p icmp -m rt --rt-type 0 ! --rt-segsleft 0 -j REJECT\n");
 #endif
       fprintf(fp, "-A INPUT -m state --state INVALID -j LOG_INPUT_DROP\n");
 
@@ -14061,7 +14200,8 @@ v6GPFirewallRuleNext:
 
 #if !defined(_PLATFORM_IPQ_)
       // Block the evil routing header type 0
-      fprintf(fp, "-A FORWARD -m rt --rt-type 0 -j LOG_FORWARD_DROP \n");
+      //According to RFC-5095, section 3
+      fprintf(fp, "-A FORWARD -m rt --rt-type 0 --rt-segsleft 0 -m ipv6header --header none -j LOG_FORWARD_DROP \n");
 #endif
 #if defined(_COSA_BCM_MIPS_)
       fprintf(fp, "-A FORWARD -m physdev --physdev-in %s -j ACCEPT\n", emta_wan_ifname);
@@ -14385,6 +14525,18 @@ v6GPFirewallRuleNext:
 #endif
 
    }
+
+    {
+        /* For RFC 7084 WPD-5 compliance */
+        char wanPrefix[MAX_QUERY] = {0};
+        char wanPrefixLen[MAX_QUERY] = {0};
+        sysevent_get(sysevent_fd, sysevent_token, "wan6_prefix", wanPrefix, sizeof(wanPrefix));
+        sysevent_get(sysevent_fd, sysevent_token, "wan6_prefixlen", wanPrefixLen, sizeof(wanPrefixLen));
+
+        if ((wanPrefix[0] != '\0') && ((atoi(wanPrefixLen) >= 48) && (atoi(wanPrefixLen) < 64))) {
+            fprintf(fp, "-I lan2wan -i brlan0 -d %s/%s -j REJECT --reject-with icmp6-addr-unreachable\n", wanPrefix, wanPrefixLen);
+        }
+    }
 
 end_of_ipv6_firewall:
 
