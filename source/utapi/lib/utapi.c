@@ -1946,6 +1946,7 @@ int Utopia_GetStaticRouteTable (int *count, routeStatic_t **out_sroute)
 static const char *s_blockipsec =  "blockipsec";
 static const char *s_blockpptp =  "blockpptp";
 static const char *s_blockl2tp =  "blockl2tp";
+static const char *s_blockssl = "blockssl";
 
 static int setFWBlockingRule (UtopiaContext *ctx, int w2l_rule_index,
                               const char *ns, const char *name, const char *result)
@@ -2006,15 +2007,14 @@ int Utopia_SetFirewallSettings (UtopiaContext *ctx, firewall_t fw)
 
      int rule_count = 0;
 
-     if (FALSE == fw.allow_ipsec_passthru) {
-         setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "$DROP");
-     }
-     if (FALSE == fw.allow_pptp_passthru) {
-         setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "$DROP");
-     }
-     if (FALSE == fw.allow_l2tp_passthru) {
-         setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "$DROP");
-     }
+         FALSE == fw.allow_ipsec_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "$ACCEPT");
+
+      FALSE == fw.allow_pptp_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "$ACCEPT");
+
+     FALSE == fw.allow_l2tp_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "$ACCEPT");
+
+      FALSE == fw.allow_ssl_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockssl, "ssl", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockssl, "ssl", "$ACCEPT");
+
 
      UTOPIA_SETINT(ctx, UtopiaValue_Firewall_W2LWKRuleCount, rule_count);
 
@@ -2025,6 +2025,7 @@ int Utopia_GetFirewallSettings (UtopiaContext *ctx, firewall_t *fw)
 {
     int rule_count;
     int i;
+    char buf[8];
     
     bzero(fw, sizeof(firewall_t));
 
@@ -2071,20 +2072,35 @@ int Utopia_GetFirewallSettings (UtopiaContext *ctx, firewall_t *fw)
     fw->allow_ipsec_passthru = TRUE;
     fw->allow_pptp_passthru = TRUE;
     fw->allow_l2tp_passthru = TRUE;
+    fw->allow_ssl_passthru = TRUE;
 
-    for (i = 0; i < rule_count; i++) {
-        Utopia_GetIndexed(ctx, UtopiaValue_FW_W2LWellKnown, i + 1, s_tokenbuf, sizeof(s_tokenbuf));
-
-        if (0 == strcmp(s_tokenbuf, s_blockipsec)) {
-            fw->allow_ipsec_passthru = FALSE;
-        }
-        else if (0 == strcmp(s_tokenbuf, s_blockpptp)) {
-            fw->allow_pptp_passthru = FALSE;
-        }
-        else if (0 == strcmp(s_tokenbuf, s_blockl2tp)) {
-            fw->allow_l2tp_passthru = FALSE;
-        }
+     memset(buf, 0, sizeof(buf));
+    syscfg_get(NULL, "blockssl::result", buf, sizeof(buf));
+    if (0 == strcmp("$DROP",buf))
+    {
+           fw->allow_ssl_passthru = FALSE;
     }
+
+    memset(buf, 0, sizeof(buf));
+    syscfg_get(NULL, "blockipsec::result", buf, sizeof(buf));
+    if (0 == strcmp("$DROP",buf))
+    {
+           fw->allow_ipsec_passthru = FALSE;
+    }
+
+    memset(buf, 0, sizeof(buf));
+    syscfg_get(NULL, "blockl2tp::result", buf, sizeof(buf));
+    if (0 == strcmp("$DROP",buf))
+    {
+           fw->allow_l2tp_passthru = FALSE;
+    }
+
+    memset(buf, 0, sizeof(buf));
+    syscfg_get(NULL, "blockpptp::result", buf, sizeof(buf));
+    if (0 == strcmp("$DROP",buf))
+    {
+           fw->allow_pptp_passthru = FALSE;
+     }
 
     return SUCCESS;
 }
