@@ -79,6 +79,10 @@
 #define OnboardLog(...)
 #endif
 #include "print_uptime.h"
+#ifdef _DT_WAN_Manager_Enable_
+#include "ipc_msg.h"
+#include <stdint.h>
+#endif
 
 #ifdef FEATURE_RDKB_WAN_MANAGER
 #include "ipc_msg.h"
@@ -111,7 +115,7 @@ typedef struct udhcpc_script_t
     bool broot_is_nfs;
 }udhcpc_script_t;
 
-#ifdef FEATURE_RDKB_WAN_MANAGER
+#ifdef _DT_WAN_Manager_Enable_
 #define DHCP_INTERFACE_NAME "interface"
 #define DHCP_IP_ADDRESS "ip"
 #define DHCP_SUBNET "subnet"
@@ -232,12 +236,16 @@ void dump_dhcp_offer()
     printf("\n ipttl: %s \n",getenv("ipttl"));
     printf("\n mtuipttl: %s \n",getenv("mtuipttl"));
     printf("\n vendorspecific: %s \n",getenv("vendorspecific"));
+#ifdef _DT_WAN_Manager_Enable_
+    printf("\n upstreamrate: %s \n",getenv("upstreamrate"));
+    printf("\n downstreamrate: %s \n",getenv("downstreamrate"));
+#endif
 }
 
 int handle_defconfig(udhcpc_script_t *pinfo)
 {
-    int ret = 0;    
-#ifdef FEATURE_RDKB_WAN_MANAGER
+    int ret = 0;
+#ifdef _DT_WAN_Manager_Enable_
     /**
      * This argument is used when udhcpc starts, and when a leases is lost.
      */
@@ -336,6 +344,44 @@ int save_dhcp_offer(udhcpc_script_t *pinfo)
     set_router_sysevents(pinfo);
     return 0;
 }
+
+#ifdef _DT_WAN_Manager_Enable_
+int handle_leasefail(udhcpc_script_t *pinfo)
+{
+    /**
+     * This argument is used when udhcpc starts, and when a leases is lost.
+     */
+    if (pinfo == NULL)
+    {
+        OnboardLog("[%s][%d] Invalid argument error!!! \n", __FUNCTION__,__LINE__);
+        return -1;
+    }
+
+    OnboardLog("[%s][%d] Received [%s] event from udhcpc \n", __FUNCTION__,__LINE__,pinfo->input_option);
+    int ret = 0;
+    ipc_dhcpv4_data_t data;
+    memset (&data, 0, sizeof(data));
+
+    ret = get_and_fill_env_data (&data, pinfo);
+    if (ret != 0)
+    {
+         OnboardLog("[%s][%d] Failed to get dhcpv4 data from enviornment \n", __FUNCTION__,__LINE__);
+         return -1;
+    }
+
+    /**
+     * Send data to the WanManager.
+     */
+    ret = send_dhcp_data_to_wanmanager(&data);
+    if (ret != 0)
+    {
+         OnboardLog("[%s][%d] Failed to send dhcpv4 data to wanmanager \n", __FUNCTION__,__LINE__);
+         return -1;
+    }
+
+    return ret;
+}
+#endif
 
 int set_dns_sysevents(udhcpc_script_t *pinfo)
 {
@@ -839,7 +885,7 @@ int handle_leasefail(udhcpc_script_t *pinfo)
 
 int handle_wan(udhcpc_script_t *pinfo)
 {
-#ifdef FEATURE_RDKB_WAN_MANAGER
+#ifdef _DT_WAN_Manager_Enable_
     /**
      * This argument is used when state moves to bound/renew.
      */
@@ -1036,6 +1082,7 @@ int handle_wan(udhcpc_script_t *pinfo)
     }
 #endif
     return 0;
+#endif
 }
 
 int read_cmd_output(char *cmd, char *output_buf, int size_buf)
@@ -1355,6 +1402,247 @@ static int send_dhcp_data_to_wanmanager (ipc_dhcpv4_data_t *dhcpv4_data)
 }
 #endif
 
+#ifdef _DT_WAN_Manager_Enable_
+static int get_and_fill_env_data (ipc_dhcpv4_data_t *dhcpv4_data, udhcpc_script_t* pinfo)
+{
+    if (dhcpv4_data == NULL || pinfo == NULL)
+    {
+        printf("[%s-%d] Invalid argument \n", __FUNCTION__,__LINE__);
+        return -1;
+    }
+
+    if (getenv(DHCP_INTERFACE_NAME) != NULL)
+    {
+        strncpy(dhcpv4_data->dhcpcInterface, getenv(DHCP_INTERFACE_NAME), sizeof(dhcpv4_data->dhcpcInterface));
+    }
+
+    /** DHCP server id */
+    if (getenv(DHCP_SERVER_ID) != NULL)
+    {
+        strncpy(dhcpv4_data->dhcpServerId, getenv(DHCP_SERVER_ID), sizeof(dhcpv4_data->dhcpServerId));
+    }
+    else
+    {
+        OnboardLog("[%s-%d] Server id is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+    }
+
+    /** DHCP State */
+    if (pinfo->input_option != NULL)
+    {
+        strncpy(dhcpv4_data->dhcpState, pinfo->input_option, sizeof(dhcpv4_data->dhcpState));
+    }
+    else
+    {
+        OnboardLog("[%s-%d] dhcp state is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+    }
+
+    if ( (strcmp(pinfo->input_option, "bound") == 0) || (strcmp(pinfo->input_option, "renew") == 0))
+    {
+        dhcpv4_data->addressAssigned = 1;
+        dhcpv4_data->isExpired = 0;
+        /** IP */
+        if (getenv (DHCP_IP_ADDRESS) != NULL)
+        {
+            strncpy(dhcpv4_data->ip, getenv(DHCP_IP_ADDRESS), sizeof(dhcpv4_data->ip));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] IP address is not available \n", __FUNCTION__,__LINE__);
+        }
+
+        /** Subnet mask. */
+        if (getenv(DHCP_SUBNET) != NULL)
+        {
+            strncpy(dhcpv4_data->mask, getenv(DHCP_SUBNET), sizeof(dhcpv4_data->mask));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] Subnet is not available \n", __FUNCTION__,__LINE__);
+        }
+
+        /** Gateway. */
+        if (pinfo->router != NULL)
+        {
+            strncpy(dhcpv4_data->gateway, pinfo->router, sizeof(dhcpv4_data->gateway));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] GW address is not available in dhcp ack \n", __FUNCTION__,__LINE__);
+        }
+
+        /** DNS server. */
+        if (pinfo->dns != NULL)
+        {
+            char dns[256] = {'\0'};
+            char *tok = NULL;
+            snprintf(dns, sizeof(dns), "%s", pinfo->dns);
+            fprintf(stderr, "[%s][%s] \n", dns, getenv(DHCP_DNS_SERVER));
+
+            /** dns server1 */
+            tok = strtok (dns, " ");
+            if (tok)
+            {
+                strncpy(dhcpv4_data->dnsServer, tok, sizeof(dhcpv4_data->dnsServer));
+            }
+            /** dnsserver2 */
+            tok = strtok(NULL, " ");
+            if (tok)
+            {
+                strncpy(dhcpv4_data->dnsServer1, tok, sizeof(dhcpv4_data->dnsServer1));
+            }
+        }
+        else
+        {
+            OnboardLog("[%s-%d] DNS server is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+        }
+
+        /** Lease time. */
+        if (getenv(DHCP_LEASETIME) != NULL)
+        {
+            dhcpv4_data->leaseTime = (uint32_t) atoi(getenv(DHCP_LEASETIME));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] Lease time is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+        }
+        /** Renewel time. */
+        if (getenv(DHCP_RENEWL_TIME) != NULL)
+        {
+            dhcpv4_data->renewalTime = (uint32_t) atoi(getenv(DHCP_RENEWL_TIME));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] Renewl time is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+        }
+
+        /** Rebinding time. */
+        if (getenv(DHCP_REBINDING_TIME) != NULL)
+        {
+            dhcpv4_data->rebindingTime = (uint32_t) atoi(getenv(DHCP_REBINDING_TIME));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] Rebinding time is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+        }
+
+        /** TimeZone. */
+       if (getenv(DHCP_TIMEZONE) != NULL)
+        {
+            strncpy(dhcpv4_data->timeZone, getenv(DHCP_TIMEZONE), sizeof(dhcpv4_data->timeZone));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] Timezone is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+        }
+
+        /** Timeoffset. */
+        if (getenv(DHCP_TIMEOFFSET) != NULL)
+        {
+            dhcpv4_data->timeOffset = (int32_t)  atoi(getenv(DHCP_TIMEOFFSET));
+            dhcpv4_data->isTimeOffsetAssigned = 1;
+        }
+        else
+        {
+            OnboardLog("[%s-%d] Timeoffset is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+        }
+
+        /** UpstreamCurrRate. **/
+        if (getenv(DHCP_UPSTREAMRATE) != NULL)
+        {
+            dhcpv4_data->upstreamCurrRate = (uint32_t)atoi(getenv(DHCP_UPSTREAMRATE));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] Upstreamrate is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+        }
+
+        /** DownsteamCurRrate */
+        if (getenv(DHCP_DOWNSTREAMRATE) != NULL)
+        {
+            dhcpv4_data->downstreamCurrRate  = (uint32_t)atoi(getenv(DHCP_DOWNSTREAMRATE));
+        }
+        else
+        {
+            OnboardLog("[%s-%d] Upstreamrate is not available in dhcp ack \n",  __FUNCTION__,__LINE__);
+        }
+    }
+    else if ((strcmp(pinfo->input_option, "leasefail") == 0))
+    {
+        /**
+         * Lease failed event.
+         * Send an expired event since there is no reply from DHCP server.
+         */
+        dhcpv4_data->isExpired = 1;
+        dhcpv4_data->addressAssigned = 0;
+    }
+    else if ((strcmp(pinfo->input_option, "deconfig") == 0))
+    {
+        /**
+         * Send an expired event since there is no reply from DHCP server.
+         */
+        dhcpv4_data->isExpired = 1;
+        dhcpv4_data->addressAssigned = 0;
+    }
+
+    return 0;
+}
+
+static int send_dhcp_data_to_wanmanager (ipc_dhcpv4_data_t *dhcpv4_data)
+{
+    int ret = 0;
+    if ( NULL == dhcpv4_data)
+    {
+        printf ("[%s-%d] Invalid argument \n", __FUNCTION__,__LINE__);
+        return;
+    }
+
+    /**
+     * Send data to wanmanager.
+     */
+    ipc_msg_payload_t msg;
+    memset(&msg, 0, sizeof(ipc_msg_payload_t));
+
+    msg.msg_type = DHCPC_STATE_CHANGED;
+    memcpy(&msg.data.dhcpv4, dhcpv4_data, sizeof(ipc_dhcpv4_data_t));
+
+    int sock   = -1;
+    int conn   = -1;
+    int bytes  = -1;
+    int sz_msg = sizeof(ipc_msg_payload_t);
+
+    sock = nn_socket(AF_SP, NN_PUSH);
+    if (sock < 0)
+    {
+        OnboardLog("[%s-%d] Failed to create the socket , error = [%d][%s]\n", __FUNCTION__, __LINE__, errno, strerror(errno));
+        return -1;
+    }
+
+    OnboardLog("[%s-%d] Created socket endpoint \n", __FUNCTION__, __LINE__);
+
+    conn = nn_connect(sock, WAN_MANAGER_ADDR);
+    if (conn < 0)
+    {
+        OnboardLog("[%s-%d] Failed to connect to the wanmanager [%s], error= [%d][%s] \n", __FUNCTION__, __LINE__, WAN_MANAGER_ADDR,errno, strerror(errno));
+        nn_close(sock);
+        return -1;
+    }
+
+    OnboardLog("[%s-%d] Connected to server socket [%s] \n", __FUNCTION__, __LINE__,WAN_MANAGER_ADDR);
+
+    bytes = nn_send(sock, (char *) &msg, sz_msg, 0);
+    if (bytes < 0)
+    {
+        OnboardLog("[%s-%d] Failed to send data to the wanmanager error=[%d][%s] \n", __FUNCTION__, __LINE__,errno, strerror(errno));
+        nn_close(sock);
+        return -1;
+    }
+
+    OnboardLog("Successfully send %d bytes to wanmanager \n", bytes);
+    nn_close(sock);
+    return 0;
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     udhcpc_script_t info;
@@ -1381,7 +1669,8 @@ int main(int argc, char *argv[])
     {    
         handle_wan(&info);
     }
-#ifdef FEATURE_RDKB_WAN_MANAGER
+#ifdef _DT_WAN_Manager_Enable_
+
     else if( !strcmp (argv[1], "leasefail"))
     {
         /**
