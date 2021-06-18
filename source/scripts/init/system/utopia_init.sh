@@ -660,6 +660,11 @@ fi
 ifconfig l2sd0.4090 192.168.251.1 netmask 255.255.255.0 up
 ip rule add from all iif l2sd0.4090 lookup erouter
 
+# WebPa enabling / disabling as per setting
+WEBPA_ENABLED=`syscfg get webpa_enable`
+if [ "$WEBPA_ENABLED" = "0" ]; then
+    systemctl stop parodus
+fi
 
 # RDKB-15951 : Dedicated l2sd0 vlan for Mesh Bhaul
 vconfig add l2sd0 1060
