@@ -361,6 +361,8 @@ if [ -f $SYSCFG_NEW_FILE ];then
 	rm -rf $SYSCFG_NEW_FILE
 fi
 
+touch /nvram/ETHWAN_ENABLE
+
 # Read reset duration to check if the unit was rebooted by pressing the HW reset button
 if cat /proc/P-UNIT/status | grep -q "Reset duration from shadow register"; then
    # Note: Only new P-UNIT firmwares and Linux drivers (>= 1.1.x) support this.
