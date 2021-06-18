@@ -11784,6 +11784,10 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(nat_fp, "-A POSTROUTING -o %s -j postrouting_towan\n", current_wan_ifname);
 #endif //_HUB4_PRODUCT_REQ_ ENDS
    fprintf(nat_fp, "-A POSTROUTING -o %s -j postrouting_tolan\n", lan_ifname);
+   // Packet Forwarding Rules for IPTv Start
+   fprintf(nat_fp, "-A POSTROUTING -o veip0.34 -j MASQUERADE\n");
+   fprintf(nat_fp, "-A POSTROUTING -o eth0.34 -j MASQUERADE\n");
+   // Packet Forwarding Rules for IPTv End
    prepare_multinet_postrouting_nat(nat_fp);
    fprintf(nat_fp, "-A POSTROUTING -j postrouting_plugins\n");
 #ifdef _HUB4_PRODUCT_REQ_
@@ -12161,6 +12165,12 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(filter_fp, "-A FORWARD -j general_forward\n");
    fprintf(filter_fp, "-A FORWARD -i %s -o %s -j wan2lan\n", current_wan_ifname, lan_ifname);
    fprintf(filter_fp, "-A FORWARD -i %s -o %s -j lan2wan\n", lan_ifname, current_wan_ifname);
+   // Packet Forwarding Rules for IPTv Start
+   fprintf(filter_fp, "-A FORWARD -i veip0.34 -o %s -j wan2lan\n", lan_ifname);
+   fprintf(filter_fp, "-A FORWARD -i %s -o veip0.34 -j lan2wan\n", lan_ifname);
+   fprintf(filter_fp, "-A FORWARD -i eth0.34 -o %s -j wan2lan\n", lan_ifname);
+   fprintf(filter_fp, "-A FORWARD -i %s -o eth0.34 -j lan2wan\n", lan_ifname);
+   // Packet Forwarding Rules for IPTv End
    // need br0 to br0 for virtual services)
    fprintf(filter_fp, "-A FORWARD -i %s -o %s -j ACCEPT\n", lan_ifname, lan_ifname);
    prepare_multinet_filter_forward(filter_fp);
@@ -15541,6 +15551,12 @@ int error;
 	 if (fw_shm_mutex_close(fwmutex)) {
 	    return -1;
 	 }
+
+    // Reload multicast configurations as described in the Broadcom CSP - CS00012073016
+   char buff[8] = {0};
+   if(!syscfg_get(NULL, "igmpproxy_enabled", buff, sizeof(buff)) &&
+      !strcmp(buff, "1"))
+       v_secure_system("mcpctl reload");
 
    return(rc);
 }
