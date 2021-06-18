@@ -607,6 +607,8 @@ static char ecm_wan_ifname[20];
 static char emta_wan_ifname[20];
 static char eth_wan_enabled[20];
 static BOOL bEthWANEnable = FALSE;
+static BOOL bWAN_SSHAccess;
+static char bWAN_SSHPort[64];
 #if defined (INTEL_PUMA7)
 static BOOL erouterSSHEnable = TRUE;
 #else
@@ -2084,6 +2086,13 @@ static int prepare_globals_from_configuration(void)
    lan0_ipaddr[0] = '\0';
    sysevent_get(sysevent_fd, sysevent_token, "lan0_ipaddr", lan0_ipaddr, sizeof(lan0_ipaddr));
 #endif
+
+   memset(tmp,0,sizeof(tmp));
+   syscfg_get(NULL, "mgmt_wan_sshaccess",tmp, sizeof(tmp));
+   bWAN_SSHAccess = (0 == strcmp("0", tmp)) ? 0 : 1;
+   memset(tmp,0,sizeof(tmp));
+   tmp[0] = '\0';
+   syscfg_get(NULL, "mgmt_wan_sshport",bWAN_SSHPort, sizeof(bWAN_SSHPort));
    
    isProdImage = bIsProductionImage(); 
    isComcastImage = bIsComcastImage();
@@ -5459,16 +5468,16 @@ static int lan_telnet_ssh(FILE *fp, int family)
    //ssh access control for lan side
    memset(query, 0, MAX_QUERY);
    rc = syscfg_get(NULL, "mgmt_lan_sshaccess", query, sizeof(query));
-   if (rc != 0 || (rc == 0 && '\0' != query[0] && 0 == strncmp(query, "0", sizeof(query))) ) {
+   if (rc != 0 || (rc == 0 && '\0' != query[0] && 0 == strncmp(query, "1", sizeof(query))) ) {
 
        if(family == AF_INET6) {
            if(!isBridgeMode) //brlan0 exists
-               fprintf(fp, "-A %s -i %s -p tcp --dport 22 -j DROP\n", "INPUT", lan_ifname);
+               fprintf(fp, "-A %s -i %s -p tcp -m tcp --dport 22 -j ACCEPT\n", "INPUT", lan_ifname);
 
-           fprintf(fp, "-A %s -i %s -p tcp --dport 22 -j DROP\n", "INPUT", cmdiag_ifname); //lan0 always exist
+           fprintf(fp, "-A %s -i %s -p tcp -m tcp --dport 22 -j ACCEPT\n", "INPUT", cmdiag_ifname); //lan0 always exist
        }
        else {
-           fprintf(fp, "-A %s -p tcp --dport 22 -j DROP\n", "lan2self_mgmt");
+           fprintf(fp, "-A %s -p tcp -m tcp --dport 22 -j ACCEPT\n", "lan2self_mgmt");
        }
    }
 #ifdef _HUB4_PRODUCT_REQ_
@@ -11947,12 +11956,12 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(filter_fp, "%s\n", ":LOG_SSH_DROP - [0:0]");
    fprintf(filter_fp, "%s\n", ":SSH_FILTER - [0:0]");
 
-   if(bEthWANEnable)
+   if(bWAN_SSHAccess)
    {
            //ETH WAN is TC XB6 exclusive feature
-           fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport 22 -j SSH_FILTER\n");
+       fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j SSH_FILTER\n",bWAN_SSHPort);
    }
-   else if (erouterSSHEnable)  // Applicable only for PUMA7 platforms
+/*   else if (erouterSSHEnable)  // Applicable only for PUMA7 platforms
    {
        fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport 22 -j SSH_FILTER\n");
        fprintf(filter_fp, "-A INPUT -i %s -p tcp -m tcp --dport 22 -j SSH_FILTER\n", ecm_wan_ifname);
@@ -11962,7 +11971,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
            fprintf(filter_fp, "-A INPUT -i %s -p tcp -m tcp --dport 22 -j DROP\n", ecm_wan_ifname);
        else
            fprintf(filter_fp, "-A INPUT -i %s -p tcp -m tcp --dport 22 -j SSH_FILTER\n", ecm_wan_ifname);
-   }
+   }*/
 
    //SNMPv3 chains for logging and filtering
    fprintf(filter_fp, "%s\n", ":SNMPDROPLOG - [0:0]");
@@ -13040,8 +13049,9 @@ static int prepare_disabled_ipv4_firewall(FILE *raw_fp, FILE *mangle_fp, FILE *n
    fprintf(filter_fp, "%s\n", ":LOG_SSH_DROP - [0:0]");
    fprintf(filter_fp, "%s\n", ":SSH_FILTER - [0:0]");
    fprintf(filter_fp, "-A INPUT -i %s -p tcp -m tcp --dport 22 -j SSH_FILTER\n", ecm_wan_ifname);
-   if (erouterSSHEnable)
-       fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport 22 -j SSH_FILTER\n");
+if (bWAN_SSHAccess){
+       fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j SSH_FILTER\n",bWAN_SSHPort);
+   }
    fprintf(filter_fp, "-A LOG_SSH_DROP -m limit --limit 1/minute -j LOG --log-level %d --log-prefix \"SSH Connection Blocked:\"\n",syslog_level);
    fprintf(filter_fp, "-A LOG_SSH_DROP -j DROP\n");
 
@@ -13753,18 +13763,18 @@ static void do_ipv6_filter_table(FILE *fp){
    do_block_ports(fp);	
    fprintf(fp, "%s\n", ":LOG_SSH_DROP - [0:0]");
    fprintf(fp, "%s\n", ":SSH_FILTER - [0:0]");
-   if(bEthWANEnable)
+   if(bWAN_SSHAccess)
    {
-   fprintf(fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport 22 -j SSH_FILTER\n");
+   fprintf(fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j SSH_FILTER\n",bWAN_SSHPort);
    }
-   else if (erouterSSHEnable)
+/*   else if (erouterSSHEnable)
    {
    fprintf(fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport 22 -j SSH_FILTER\n");
    fprintf(fp, "-A INPUT -i %s -p tcp -m tcp --dport 22 -j SSH_FILTER\n", ecm_wan_ifname);
    }
    else
    fprintf(fp, "-A INPUT -i %s -p tcp -m tcp --dport 22 -j SSH_FILTER\n", ecm_wan_ifname);
-  
+*/
    fprintf(fp, "-A LOG_SSH_DROP -m limit --limit 1/minute -j LOG --log-level %d --log-prefix \"SSH Connection Blocked:\"\n",syslog_level);
    fprintf(fp, "-A LOG_SSH_DROP -j DROP\n");
 
