@@ -64,7 +64,7 @@ case "$1" in
        if [ "$status" == "started" ]; then
            service_routed start
        elif [ "$status" == "stopped" ]; then
-           service_routed stop
+           service_routed radv-restart
        fi
        ;;
    lan-status)

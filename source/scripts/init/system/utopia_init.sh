@@ -228,6 +228,12 @@ echo_t "[utopia][init] Starting udev.."
 
 mkdir -p /tmp/cron
 
+# Starting ipv6 route monitor daemon during bootup
+/usr/bin/ipv6rtmon &
+
+# Creating the dibbler directory for its pid files in /tmp
+mkdir -p /tmp/dibbler
+
 BUTTON_THRESHOLD=15
 FACTORY_RESET_KEY=factory_reset
 FACTORY_RESET_RGWIFI=y
@@ -945,6 +951,7 @@ fi
 echo $ICMP_TIMEOUT > /proc/sys/net/netfilter/nf_conntrack_icmp_timeout
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
+echo 1 >> /proc/sys/net/ipv6/conf/all/forwarding
 
 if [ -f /usr/bin/inotify-minidump-watcher ];then
        mkdir -p /minidumps

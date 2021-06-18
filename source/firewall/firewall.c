@@ -627,6 +627,7 @@ static int current_wan_ipv6_num = 0;
 static char current_wan_ipv6[IF_IPV6ADDR_MAX][40];
 
 static char current_wan_ipaddr[20]; // ipv4 address of the wan interface, whether ppp or regular
+static char current_wan_ip6addr[128]; // ipv6 address of the wan interface, whether ppp or regular
 static char lan_ifname[50];       // name of the lan interface
 static char lan_ipaddr[20];       // ipv4 address of the lan interface
 static char lan_netmask[20];      // ipv4 netmask of the lan interface
@@ -696,6 +697,7 @@ static int isLogIncomingEnabled;
 static int isLogOutgoingEnabled;
 static int isCronRestartNeeded;
 static int isPingBlocked;
+static int isLanPingBlocked;
 static int isPingBlockedV6;
 static int isIdentBlocked;
 static int isIdentBlockedV6;
@@ -2104,6 +2106,7 @@ static int prepare_globals_from_configuration(void)
    }
    sysevent_get(sysevent_fd, sysevent_token, "current_wan_ipaddr", current_wan_ipaddr, sizeof(current_wan_ipaddr));
    sysevent_get(sysevent_fd, sysevent_token, "current_lan_ipaddr", lan_ipaddr, sizeof(lan_ipaddr));
+   sysevent_get(sysevent_fd, sysevent_token, "tr_erouter0_dhcpv6_client_v6addr", current_wan_ip6addr, sizeof(current_wan_ip6addr));
    
 #if defined(CONFIG_CISCO_FEATURE_CISCOCONNECT) || defined(CONFIG_CISCO_PARCON_WALLED_GARDEN) 
    FILE *gwIpFp = fopen("/var/.gwip", "w");
@@ -2382,21 +2385,21 @@ static int prepare_globals_from_configuration(void)
    temp[0] = '\0';
    rc = syscfg_get(NULL, "block_ping", temp, sizeof(temp));
    if (0 != rc || '\0' == temp[0]) {
-      isPingBlocked = 1;
+      isLanPingBlocked = 0;
    } else if (0 == strcmp("0", temp)) {
-      isPingBlocked = 0;
+      isLanPingBlocked = 1;
    } else {
-     isPingBlocked = 1;
+     isLanPingBlocked = 0;
    }
 
    temp[0] = '\0';
-   rc = syscfg_get(NULL, "block_pingv6", temp, sizeof(temp));
+   rc = syscfg_get(NULL, "firewall_disable_wan_pingv6", temp, sizeof(temp));
    if (0 != rc || '\0' == temp[0]) {
-      isPingBlockedV6 = 1;
-   } else if (0 == strcmp("0", temp)) {
       isPingBlockedV6 = 0;
+   } else if (0 == strcmp("0", temp)) {
+      isPingBlockedV6 = 1;
    } else {
-     isPingBlockedV6 = 1;
+     isPingBlockedV6 = 0;
    }
 
    temp[0] = '\0';
@@ -2541,9 +2544,9 @@ static int prepare_globals_from_configuration(void)
    if (0 != rc || '\0' == temp[0]) {
       isWanPingDisable = 0;
    } else if (0 == strcmp("0", temp)) {
-      isWanPingDisable = 0;
+      isWanPingDisable = 1;
    } else {
-     isWanPingDisable = 1;
+     isWanPingDisable = 0;
    }
 
 
@@ -2552,9 +2555,9 @@ static int prepare_globals_from_configuration(void)
    if (0 != rc || '\0' == temp[0]) {
       isWanPingDisableV6 = 0;
    } else if (0 == strcmp("0", temp)) {
-      isWanPingDisableV6 = 0;
+      isWanPingDisableV6 = 1;
    } else {
-     isWanPingDisableV6 = 1;
+     isWanPingDisableV6 = 0;
    }
 
 
@@ -6292,7 +6295,7 @@ static int remote_access_set_proto(FILE *filt_fp, FILE *nat_fp, const char *port
 		fprintf(filt_fp, "-A INPUT -i %s  -p tcp -m tcp --dport %s -d %s -j DROP\n", interface, port, IPv6 );
 		}
 #endif
-        fprintf(filt_fp, "-A INPUT -i %s %s -p tcp -m tcp --dport %s -j ACCEPT\n", interface, src, port);
+        fprintf(filt_fp, "-A wan2self_mgmt -i %s %s -p tcp -m tcp --dport %s -j ACCEPT\n", interface, src, port);
     }
          FIREWALL_DEBUG("Exiting remote_access_set_proto\n");    
     return 0;
@@ -6685,7 +6688,7 @@ static int do_remote_access_control(FILE *nat_fp, FILE *filter_fp, int family)
     if(family == AF_INET)
         fprintf(filter_fp, "-A wan2self_mgmt -p tcp -m multiport --dports 23,%s,%s -j xlog_drop_wan2self\n", httpport, httpsport);
     else
-        fprintf(filter_fp, "-A INPUT ! -i %s -p tcp -m multiport --dports 23,%s,%s -j DROP\n", isBridgeMode == 0 ? lan_ifname : cmdiag_ifname, httpport, httpsport);
+        fprintf(filter_fp, "-A wan2self_mgmt ! -i %s -p tcp -m multiport --dports 23,%s,%s -j DROP\n", isBridgeMode == 0 ? lan_ifname : cmdiag_ifname, httpport, httpsport);
          FIREWALL_DEBUG("Exiting do_remote_access_control\n");
     return 0;
 #endif
@@ -12235,13 +12238,11 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    // Allow local loopback traffic 
    fprintf(filter_fp, "-A INPUT -i lo -s 127.0.0.0/8 -j ACCEPT\n");
    if (isWanReady) {
-       #ifdef _COSA_FOR_BCI_ 
        if (1 == isWanPingDisable)
        {
            fprintf(filter_fp, "-A INPUT -i erouter0 -p icmp -m icmp --icmp-type 8 -j DROP\n");
            fprintf(filter_fp, "-A INPUT -i brlan0 -d %s -p icmp -m icmp --icmp-type 8 -j DROP\n",current_wan_ipaddr);
        }
-       #endif       
       fprintf(filter_fp, "-A INPUT -p tcp -i lo -s %s -d %s -j ACCEPT\n", current_wan_ipaddr, current_wan_ipaddr);
    }
    // since some protocols have a different ip address for the connection to the isp, and the wan
@@ -13592,6 +13593,13 @@ static void do_ipv6_sn_filter(FILE* fp) {
         fprintf(fp, "-A PREROUTING -i %s -d ff00::/8 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -j DROP\n", ifnames[i]);
     }
 
+        //Packets with same source and destination addresses
+        if (current_wan_ip6addr[0] != '\0')
+            fprintf(fp, "-A PREROUTING -i erouter0 -s %s -d %s -j DROP\n",current_wan_ip6addr, current_wan_ip6addr);
+
+        // Invalid Packets
+        fprintf(fp, "-A PREROUTING -i erouter0 -m state --state INVALID  -j DROP\n");
+
 	//RDKB-10248: IPv6 Entries issue in ip neigh show 1. drop the NS 
 	FILE *fp1;
 	char ip[128]="";
@@ -13686,7 +13694,7 @@ static void do_ipv6_nat_table(FILE* fp)
        char ipv6host[64] = {'\0'};
 
        rc = syscfg_get(NULL, "dmz_dst_ip_addrv6", ipv6host, sizeof(ipv6host));
-       if(rc == 0 && ipv6host[0] != '\0' && strcmp(ipv6host, "x") != 0 && strlen(current_wan_ipv6[0]) > 0) {
+       if(rc == 0 && ipv6host[0] != '\0' && strcmp(ipv6host, "x") != 0 && strlen(current_wan_ipv6[0]) > 0 && strcmp(ipv6host, "0.0.0.0.0.0.0.0") != 0) {
            fprintf(fp, "-A PREROUTING -i %s -d %s -j DNAT --to-destination %s \n", wan6_ifname, current_wan_ipv6, ipv6host);
        }
    }
@@ -13965,12 +13973,16 @@ static void do_ipv6_filter_table(FILE *fp){
    fprintf(fp, ":INPUT ACCEPT [0:0]\n");
    fprintf(fp, ":FORWARD ACCEPT [0:0]\n");
    fprintf(fp, ":OUTPUT ACCEPT [0:0]\n");
+   fprintf(fp, ":wan2self - [0:0]\n");
+   fprintf(fp, ":wanattack - [0:0]\n");
+   fprintf(fp, ":wan2self_mgmt - [0:0]\n");
    fprintf(fp, ":lan2wan - [0:0]\n");
    fprintf(fp, ":lan2wan_misc_ipv6 - [0:0]\n");
    fprintf(fp, ":lan2wan_pc_device - [0:0]\n");
    fprintf(fp, ":lan2wan_pc_site - [0:0]\n");
    fprintf(fp, ":lan2wan_pc_service - [0:0]\n");
    fprintf(fp, ":wan2lan - [0:0]\n");
+   fprintf(fp, ":xlog_drop_wanattack - [0:0]\n");
 
    prepare_rabid_rules(fp, IP_V6);
 
@@ -13986,6 +13998,9 @@ static void do_ipv6_filter_table(FILE *fp){
    fprintf(fp, "%s\n", ":mtadosattack - [0:0]");
 #endif
    //<<DOS
+
+   fprintf(fp, "-A wan2self -j wanattack\n");
+   fprintf(fp, "-A wan2self -j wan2self_mgmt\n");
 
 #ifdef INTEL_PUMA7
    //Avoid blocking packets at the Intel NIL layer
@@ -14060,7 +14075,6 @@ static void do_ipv6_filter_table(FILE *fp){
 
    fprintf(fp, "-A LOG_INPUT_DROP -m limit --limit 1/minute -j LOG --log-level %d --log-prefix \"UTOPIA: FW.IPv6 INPUT drop\"\n",syslog_level);
    fprintf(fp, "-A LOG_FORWARD_DROP -m limit --limit 1/minute -j LOG --log-level %d --log-prefix \"UTOPIA: FW.IPv6 FORWARD drop\"\n",syslog_level);
-   fprintf(fp, "-A LOG_INPUT_DROP -j DROP\n"); 
    fprintf(fp, "-A LOG_FORWARD_DROP -j DROP\n"); 
 
    fprintf(fp, "%s\n", ":PING_FLOOD - [0:0]");
@@ -14174,15 +14188,6 @@ static void do_ipv6_filter_table(FILE *fp){
       fprintf(fp, "-A INPUT -p icmpv6 -m icmp6 --icmpv6-type 4/1 -m limit --limit 10/sec -j ACCEPT\n"); // Unknown header type
       fprintf(fp, "-A INPUT -p icmpv6 -m icmp6 --icmpv6-type 4/2 -m limit --limit 10/sec -j ACCEPT\n"); // Unknown option
 
-      //ping is allowed for cm and emta regardless whatever firewall level is
-
-#if !defined(_HUB4_PRODUCT_REQ_)
-      fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j PING_FLOOD\n", ecm_wan_ifname); // Echo request
-      fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m limit --limit 10/sec -j ACCEPT\n", ecm_wan_ifname); // Echo reply
-
-      fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j PING_FLOOD\n", emta_wan_ifname); // Echo request
-      fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m limit --limit 10/sec -j ACCEPT\n", emta_wan_ifname); // Echo reply
-#endif /*_HUB4_PRODUCT_REQ_*/
 
     #if defined(CISCO_CONFIG_DHCPV6_PREFIX_DELEGATION) && ! defined(_CBR_PRODUCT_REQ_)
       /*Add a simple logic here to make traffic allowed for lan interfaces
@@ -14190,9 +14195,11 @@ static void do_ipv6_filter_table(FILE *fp){
       prepare_ipv6_multinet(fp);
     #endif
       /* not allow ping wan0 from brlan0 */
-      int i;
-      for(i = 0; i < ecm_wan_ipv6_num; i++){
-         fprintf(fp, "-A INPUT -i %s -d %s -p icmpv6 -m icmp6 --icmpv6-type 128  -j LOG_INPUT_DROP\n", lan_ifname, ecm_wan_ipv6[i]);
+      if(isLanPingBlocked) {
+          int i;
+          for(i = 0; i < ecm_wan_ipv6_num; i++){
+             fprintf(fp, "-A INPUT -i %s -d %s -p icmpv6 -m icmp6 --icmpv6-type 128  -j LOG_INPUT_DROP\n", lan_ifname, ecm_wan_ipv6[i]);
+          }
       }
       fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j PING_FLOOD\n", lan_ifname); // Echo request
       fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m limit --limit 10/sec -j ACCEPT\n", lan_ifname); // Echo reply
@@ -14206,31 +14213,37 @@ static void do_ipv6_filter_table(FILE *fp){
 		}
 	  }
 
-      if ( (isPingBlockedV6 && strncasecmp(firewall_levelv6, "Custom", strlen("Custom")) == 0)
+      if ( strncasecmp(firewall_levelv6, "Custom", strlen("Custom")) == 0
               || strncasecmp(firewall_levelv6, "High", strlen("High")) == 0
-              || strncasecmp(firewall_levelv6, "Medium", strlen("Medium")) == 0 
-              || (isWanPingDisableV6 == 1) )
+              || strncasecmp(firewall_levelv6, "Medium", strlen("Medium")) == 0 )
       {
-          fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j DROP\n", current_wan_ifname); // Echo request
-          fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m state --state NEW,INVALID,RELATED -j DROP\n", current_wan_ifname); // Echo reply
-
+          if (isPingBlockedV6) {
+              fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j DROP\n", current_wan_ifname); // Echo request
+              fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m state --state NEW,INVALID,RELATED -j DROP\n", current_wan_ifname); // Echo reply
+          } else{
+              fprintf(fp, "-A wanattack -p icmpv6 -m icmp6 --icmpv6-type 128 -j PING_FLOOD\n"); // Echo request
+              fprintf(fp, "-A wanattack -p icmpv6 -m icmp6 --icmpv6-type 129 -m limit --limit 10/sec -j ACCEPT\n"); // Echo reply
+          }
       }
-      else if(strncasecmp(firewall_levelv6, "Low", strlen("Low")) == 0 || (isWanPingDisableV6 == 0)) 
+      else if(strncasecmp(firewall_levelv6, "Low", strlen("Low")) == 0 )
       {
-      #if defined(CONFIG_CCSP_DROP_ICMP_PING)
-          fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j DROP\n", current_wan_ifname); // Echo request
-          fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m state --state NEW,INVALID,RELATED -j DROP\n", current_wan_ifname); // Echo reply
-      #else
-          fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j PING_FLOOD\n", current_wan_ifname); // Echo request
-          fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m limit --limit 10/sec -j ACCEPT\n", current_wan_ifname); // Echo reply
-      #endif
+          if(isPingBlockedV6) {
+              fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j DROP\n", current_wan_ifname); // Echo request
+              fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m state --state NEW,INVALID,RELATED -j DROP\n", current_wan_ifname); // Echo reply
+          } else {
+              fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j PING_FLOOD\n", current_wan_ifname); // Echo request
+              fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m limit --limit 10/sec -j ACCEPT\n", current_wan_ifname); // Echo reply
+          }
       }
       else
       {
           //fprintf(fp, "-A INPUT -p icmpv6 -m icmp6 --icmpv6-type 128 -m limit --limit 10/sec -j ACCEPT\n"); // Echo request
-          fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j PING_FLOOD\n", current_wan_ifname); // Echo request
-          fprintf(fp, "-A INPUT -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m limit --limit 10/sec -j ACCEPT\n", current_wan_ifname); // Echo reply
+          fprintf(fp, "-A wanattack -i %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j PING_FLOOD\n", current_wan_ifname); // Echo request
+          fprintf(fp, "-A wanattack -i %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m limit --limit 10/sec -j ACCEPT\n", current_wan_ifname); // Echo reply
       }
+
+      fprintf(fp, "-A wanattack -p tcp --syn -m limit --limit 30/s --limit-burst 20 -j RETURN\n");
+      fprintf(fp, "-A wanattack -p tcp --syn -j DROP\n");
 
       // Should only come from LINK LOCAL addresses, rate limited except 100/second for NA/NS and RS
       fprintf(fp, "-A INPUT -p icmpv6 -m icmp6 --icmpv6-type 135 -m limit --limit 100/sec -j ACCEPT\n"); // Allow NS from any type source address
@@ -14274,6 +14287,7 @@ static void do_ipv6_filter_table(FILE *fp){
       
       // Allow SSDP 
       fprintf(fp, "-A INPUT -i %s -p udp --dport 1900 -j ACCEPT\n", lan_ifname);
+      fprintf(fp, "-A INPUT -i %s -j wan2self\n",current_wan_ifname);
 
       // Normal ports for Management interface
       do_lan2self_by_wanip6(fp);
@@ -14311,7 +14325,7 @@ static void do_ipv6_filter_table(FILE *fp){
       }
 
       // established communication from anywhere is accepted
-      fprintf(fp, "-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+      fprintf(fp, "-A wan2self -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
 
 #if defined(_COSA_BCM_MIPS_)
       fprintf(fp, "-A INPUT -m physdev --physdev-in %s -j ACCEPT\n", emta_wan_ifname);
@@ -14509,8 +14523,8 @@ v6GPFirewallRuleNext:
       char prefix[129];
       sysevent_get(sysevent_fd, sysevent_token, "ipv6_prefix", prefix, sizeof(prefix));
       if ( '\0' != prefix[0] ) {
-         //fprintf(fp, "-A FORWARD ! -s %s -i %s -m limit --limit 10/sec -j LOG --log-level %d --log-prefix \"UTOPIA: FW. IPv6 FORWARD anti-spoofing\"\n", prefix, lan_ifname,syslog_level);
-         //fprintf(fp, "-A FORWARD ! -s %s -i %s -m limit --limit 10/sec -j REJECT --reject-with icmp6-adm-prohibited\n", prefix, lan_ifname);
+         fprintf(fp, "-A FORWARD ! -s %s -i %s -m limit --limit 10/sec -j LOG --log-level %d --log-prefix \"UTOPIA: FW. IPv6 FORWARD anti-spoofing\"\n", prefix, lan_ifname,syslog_level);
+         fprintf(fp, "-A FORWARD ! -s %s -i %s -m limit --limit 10/sec -j REJECT --reject-with icmp6-adm-prohibited\n", prefix, lan_ifname);
 #ifdef _COSA_FOR_BCI_
          /* adding forward rule for PD traffic */
          fprintf(fp, "-A FORWARD -s %s -i %s -j ACCEPT\n", prefix, lan_ifname);
@@ -14635,7 +14649,6 @@ v6GPFirewallRuleNext:
          */
 
          //Changed GUI and IPv6 firewall now allows all lan2wan traffic
-         fprintf(fp, "-A lan2wan -j ACCEPT\n");
       }
       else
       {
@@ -14701,7 +14714,7 @@ v6GPFirewallRuleNext:
           char ipv6host[64] = {'\0'};
 
           rc = syscfg_get(NULL, "dmz_dst_ip_addrv6", ipv6host, sizeof(ipv6host));
-          if(rc == 0 && ipv6host[0] != '\0' && strcmp(ipv6host, "x") != 0) {
+          if(rc == 0 && ipv6host[0] != '\0' && strcmp(ipv6host, "x") != 0 && strcmp(ipv6host, "0.0.0.0.0.0.0.0") != 0) {
               fprintf(fp, "-A wan2lan -d %s -j ACCEPT\n", ipv6host);
           }
       }
@@ -14724,12 +14737,10 @@ v6GPFirewallRuleNext:
          fprintf(fp, "-A wan2lan -p tcp --dport 6346 -j RETURN\n"); // Gnutella
          fprintf(fp, "-A wan2lan -p udp --dport 6346 -j RETURN\n"); // Gnutella
          fprintf(fp, "-A wan2lan -p tcp --dport 49152:65534 -j RETURN\n"); // Vuze
-         fprintf(fp, "-A wan2lan -j ACCEPT\n");
       }
       else if (strncasecmp(firewall_levelv6, "Low", strlen("Low")) == 0)
       {
          fprintf(fp, "-A wan2lan -p tcp --dport 113 -j RETURN\n"); // IDENT
-         fprintf(fp, "-A wan2lan -j ACCEPT\n");
       }
       else if (strncasecmp(firewall_levelv6, "Custom", strlen("Custom")) == 0)
       {
@@ -14757,10 +14768,9 @@ v6GPFirewallRuleNext:
          }
 
          if(isMulticastBlockedV6) {
-            fprintf(fp, "-A wan2lan -p 2 -j RETURN\n"); // IGMP
+            fprintf(fp, "-A wan2lan -p icmpv6 --icmpv6-type 143 -j RETURN\n"); // IGMP
          }
 
-         fprintf(fp, "-A wan2lan -j ACCEPT\n");
       }
       else if (strncasecmp(firewall_levelv6, "None", strlen("None")) == 0)
       {
