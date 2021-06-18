@@ -84,6 +84,8 @@ prepare_pppd_ip_up_script() {
    IP_UP_FILENAME=/etc/ppp/ip-up
    PPP_RESOLV_CONF=/var/run/ppp/resolv.conf
    WAN_DOMAIN_CONF=/etc/ppp/domain.conf
+   RESOLV_CONF=/etc/resolv.dnsmasq
+   RESOLV_CONF_TMP=/tmp/resolv_tmp.dnsmasq
 
    echo -n > $IP_UP_FILENAME
    echo "#!/bin/sh" >> $IP_UP_FILENAME
@@ -100,6 +102,20 @@ prepare_pppd_ip_up_script() {
    echo "sysevent set ppp_remote_ipaddr \$5" >> $IP_UP_FILENAME
    echo "sysevent set wan_default_gateway \$5" >> $IP_UP_FILENAME
 
+#TODO:Need to revisit this part once the SKY Version-2 is available.
+   echo "sysevent set current_ipv4_link_state up " >> $IP_UP_FILENAME
+   echo "sysevent set ipv4_wan_ipaddr \$PPP_IPADDR" >> $IP_UP_FILENAME
+   echo "sysevent set ipv4_wan_subnet \$PPP_SUBNET " >> $IP_UP_FILENAME
+   echo "sysevent set current_wan_ifname \$1" >> $IP_UP_FILENAME
+   echo "sysevent set current_wan_subnet \$PPP_SUBNET" >> $IP_UP_FILENAME
+   echo "sysevent set current_wan_ipaddr \$PPP_IPADDR" >> $IP_UP_FILENAME
+   echo "sysevent set current_wan_state up" >> $IP_UP_FILENAME
+   echo "sysevent set wan-status started" >> $IP_UP_FILENAME
+   echo "sysevent set wan_service-status started" >> $IP_UP_FILENAME
+   echo "sysevent set firewall-restart NULL" >> $IP_UP_FILENAME
+   echo "sysevent set sshd-restart" >> $IP_UP_FILENAME
+   echo "dmcli eRT setv Device.NotifyComponent.SetNotifi_ParamName string WAN_IP,Retrieved" >> $IP_UP_FILENAME
+
    echo "echo \"[utopia][pppd ip-up] sysevent set pppd_current_wan_ifname \$1\" > /dev/console" >> $IP_UP_FILENAME
    echo "sysevent set pppd_current_wan_ifname \$1" >> $IP_UP_FILENAME
    echo "echo \"[utopia][pppd ip-up] sysevent set pppd_current_wan_subnet \$PPP_SUBNET\" > /dev/console" >> $IP_UP_FILENAME
@@ -113,7 +129,11 @@ prepare_pppd_ip_up_script() {
    echo "      echo \"search \$WAN_DOMAIN\" > $WAN_DOMAIN_CONF" >> $IP_UP_FILENAME
    echo "      echo \"[utopia][pppd ip-up] sysevent get dhcp_domain \$WAN_DOMAIN\" > /dev/console" >> $IP_UP_FILENAME
    echo "   fi" >> $IP_UP_FILENAME
-   echo "   cat $WAN_DOMAIN_CONF $PPP_RESOLV_CONF > /etc/resolv.conf" >> $IP_UP_FILENAME
+   echo "   cat $RESOLV_CONF > $RESOLV_CONF_TMP" >> $IP_UP_FILENAME
+   echo "   cat $RESOLV_CONF_TMP | grep nameserver | grep : > $RESOLV_CONF" >> $IP_UP_FILENAME
+   echo "   cat $WAN_DOMAIN_CONF $PPP_RESOLV_CONF >> $RESOLV_CONF" >> $IP_UP_FILENAME
+   echo "   fgrep -v -f $RESOLV_CONF $RESOLV_CONF_TMP >> $RESOLV_CONF" >> $IP_UP_FILENAME
+   echo "   rm -rf $RESOLV_CONF_TMP" >> $IP_UP_FILENAME
    echo "   PPP_DNS=\`awk '{ print \$2 }' $PPP_RESOLV_CONF\`" >> $IP_UP_FILENAME
    echo "   sysevent set wan_ppp_dns \"\$PPP_DNS\"" >> $IP_UP_FILENAME
    echo "   echo \"[utopia][pppd ip-up] sysevent set wan_ppp_dns \$PPP_DNS\" > /dev/console" >> $IP_UP_FILENAME
@@ -122,6 +142,7 @@ prepare_pppd_ip_up_script() {
    echo "sysevent set ppp_status up 2>&1 > /dev/console" >> $IP_UP_FILENAME
    echo "ulog ip-up event \"sysevent set ppp_status up\"" >> $IP_UP_FILENAME
    echo "echo \"[utopia][pppd ip-up] sysevent set ppp_status up <\`date\`>\" > /dev/console" >> $IP_UP_FILENAME
+   echo "killall -HUP dnsmasq" >> $IP_UP_FILENAME
 
    chmod 777 $IP_UP_FILENAME
 
@@ -155,8 +176,18 @@ if [ "1" = "\$IPV6_ROUTER_ADV" ] ; then
    echo 1 > /proc/sys/net/ipv6/conf/\$1/accept_ra_pinfo # Accept prefix information for SLAAC
    echo 1 > /proc/sys/net/ipv6/conf/\$1/autoconf     # Do SLAAC
 fi
+
+SYSEVENT_CURRENT_WAN_STATE=\`sysevent get current_wan_state\`
+if [ "\$SYSEVENT_CURRENT_WAN_STATE" != "up" ] ; then
+    echo "[utopia][pppd ipv6-up] Bringing wan state up in IPv6 only mode" >> /var/log/messages
+    sysevent set current_wan_state up
+    sysevent set wan-status started
+    sysevent set wan_service-status started
+    sysevent set firewall-restart NULL
+fi
 EOM
 
+   echo "killall -HUP dnsmasq" >> $IPV6_UP_FILENAME
    chmod 777 $IPV6_UP_FILENAME
    sysevent set current_wan_ipv6address_ll "$4"
 }
@@ -179,7 +210,21 @@ prepare_pppd_ip_down_script() {
 
    echo "sysevent set ppp_status down" >> $IP_DOWN_FILENAME
    echo "ulog ip-down event \"sysevent set ppp_status down\"" >> $IP_DOWN_FILENAME
+   echo "sed -i '/non_internet\|:/!d' $RESOLV_CONF" >> $IP_DOWN_FILENAME
    echo "echo \"[utopia][pppd ip-down] <\`date\`>\" > /dev/console" >> $IP_DOWN_FILENAME
+
+   echo "sysevent set wan-status stopped" >> $IP_DOWN_FILENAME
+   echo "sysevent set wan_service-status stopped" >> $IP_DOWN_FILENAME
+   echo "sysevent set current_ipv4_link_state down " >> $IP_DOWN_FILENAME
+   echo "sysevent set ipv4_wan_ipaddr 0.0.0.0" >> $IP_DOWN_FILENAME
+   echo "sysevent set ipv4_wan_subnet 0.0.0.0" >> $IP_DOWN_FILENAME
+   echo "sysevent set current_wan_subnet 0.0.0.0" >> $IP_DOWN_FILENAME
+   echo "sysevent set current_wan_ipaddr 0.0.0.0" >> $IP_DOWN_FILENAME
+   echo "sysevent set current_wan_state down" >> $IP_DOWN_FILENAME
+   echo "dmcli eRT setv Device.NotifyComponent.SetNotifi_ParamName string WAN_IP,Not_Retrieved" >> $IP_DOWN_FILENAME
+
+   #TODO:Need to revisit this part once the SKY Version-2 is available.
+   echo "sysevent set sshd-restart" >> $IP_DOWN_FILENAME
 
    chmod 777 $IP_DOWN_FILENAME
 }
@@ -196,6 +241,17 @@ prepare_pppd_ipv6_down_script() {
    # echo "echo \"[utopia][pppd ipv6-down] Parameter 1: \$1 Parameter 2: \$2 Parameter 3: \$3\" > /dev/console" >> $IPV6_DOWN_FILENAME
    # echo "echo \"[utopia][pppd ipv6-down] Parameter 4: \$4 Parameter 5: \$5 Parameter 6: \$6\" > /dev/console" >> $IPV6_DOWN_FILENAME
 
+   cat << EOM >> $IPV6_DOWN_FILENAME
+SYSEVENT_CURRENT_WAN_STATE=\`sysevent get current_wan_state\`
+SYSEVENT_CURRENT_IPV4_LINK_STATE=\`sysevent get current_ipv4_link_state\`
+if [ "\$SYSEVENT_CURRENT_WAN_STATE" = "up" ] && [ "\$SYSEVENT_CURRENT_IPV4_LINK_STATE" != "up" ]; then
+    echo "[utopia][pppd ipv6-down] Bringing wan state down" >> /var/log/messages
+    sysevent set wan-status stopped
+    sysevent set wan_service-status stopped
+    sysevent set current_wan_state down
+    sysevent set firewall-restart NULL
+fi
+EOM
    chmod 777 $IPV6_DOWN_FILENAME
 }
 
@@ -208,7 +264,11 @@ prepare_pppd_options() {
    PPP_KEEPALIVE=`syscfg get ppp_keepalive_interval`
    WAN_PROTO=`syscfg get wan_proto`
    CLIENT=`syscfg get wan_proto_username`
+   IPV6CP=`syscfg get IPV6CPEn`
+   IPCP=`syscfg get IPCPEn`
    WAN_MTU=`syscfg get wan_mtu`
+   MAXMRUSIZE=`syscfg get MaxMRUSize`
+   MAXAUTHREQ=`syscfg get maxauthreq`
 
    echo -n > $PPP_OPTIONS_FILE
    if [ "demand" = "$PPP_CONN_METHOD" ]; then
@@ -235,9 +295,22 @@ prepare_pppd_options() {
        echo "lcp-echo-interval $PPP_KEEPALIVE" >> $PPP_OPTIONS_FILE
      fi
 
-   # The comma in the ipv6 line is mandatory, don't remove it (it separates two default fields)
-     echo "ipv6 ," >> $PPP_OPTIONS_FILE
+     if [ $IPV6CP != 1 ]; then
+            sed -i 's/+ipv6//g' >> $PPP_OPTIONS_FILE
+            sed -i 's/ipv6cp-use-persistent//g' >> $PPP_OPTIONS_FILE
+     else
+            echo "+ipv6" >> $PPP_OPTIONS_FILE
+            echo "ipv6cp-use-persistent" >> $PPP_OPTIONS_FILE
+     fi
+
+     if [ $IPCP != 1 ]; then
+            echo "noip" >> $PPP_OPTIONS_FILE
+     else
+            sed -i 's/noip//g' >> $PPP_OPTIONS_FILE
+     fi
    fi
+   echo "mru $MAXMRUSIZE" >> $PPP_OPTIONS_FILE
+   echo "idle $PPP_IDLE_TIME" >> $PPP_OPTIONS_FILE
    echo "defaultroute" >> $PPP_OPTIONS_FILE
    echo "usepeerdns" >> $PPP_OPTIONS_FILE
    echo "user $CLIENT" >> $PPP_OPTIONS_FILE
@@ -253,20 +326,10 @@ prepare_pppd_options() {
    else
       echo "mtu $WAN_MTU" >> $PPP_OPTIONS_FILE
    fi
-   echo "default-asyncmap" >> $PPP_OPTIONS_FILE
-   echo "nopcomp" >> $PPP_OPTIONS_FILE
-   echo "noaccomp" >> $PPP_OPTIONS_FILE
-   echo "noccp" >> $PPP_OPTIONS_FILE
-   echo "novj" >> $PPP_OPTIONS_FILE
-   echo "nobsdcomp" >> $PPP_OPTIONS_FILE
-   echo "nodeflate" >> $PPP_OPTIONS_FILE
-   # echo "lcp-echo-failure 6" >> $PPP_OPTIONS_FILE
    echo "lock" >> $PPP_OPTIONS_FILE
-   echo "noauth" >> $PPP_OPTIONS_FILE
    echo "debug" >> $PPP_OPTIONS_FILE
-   echo "logfile /tmp/ppp.log" >> $PPP_OPTIONS_FILE
-   # echo "dump" >> $PPP_OPTIONS_FILE
-   # echo "dryrun" >> $PPP_OPTIONS_FILE
+   echo "maxauthreq $MAXAUTHREQ" >> $PPP_OPTIONS_FILE
+   echo "ifname erouter0" >> $PPP_OPTIONS_FILE
 }
 
 #------------------------------------------------------------------

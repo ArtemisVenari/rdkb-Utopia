@@ -50,6 +50,14 @@ echo_t "* Copyright 2014 Cisco Systems, Inc.                               "
 echo_t "* Licensed under the Apache License, Version 2.0                   "
 echo_t "*******************************************************************"
 
+#TODO: Need to replaced once the sky version 2 code is available
+mkdir -p /nvram
+cp /usr/ccsp/ccsp_msg.cfg /tmp
+touch /tmp/cp_subsys_ert
+ln -s /var/spool/cron/crontabs /
+mkdir -p /var/run/firewall
+touch /nvram/ETHWAN_ENABLE
+
 source $UTOPIA_PATH/log_capture_path.sh
 if [ -f /etc/device.properties ]
 then
@@ -328,6 +336,11 @@ else
    # This value again will be modified from network_response.sh 
    echo_t "[utopia][init] Echoing network response during Factory reset"
    echo 204 > /var/tmp/networkresponse.txt
+fi
+
+#TODO: Applying the patch received from the BCM for GWP.Need to revisit when SKY Version 2 is available to handle GWP gap.
+if [ "$BOX_TYPE" == "TCH" -o "$BOX_TYPE" = "SGC" ]; then
+    ethswctl -c wan -i eth0 -o enable
 fi
 
 SYSCFG_LAN_DOMAIN=`syscfg get lan_domain` 
@@ -869,3 +882,5 @@ $UTOPIA_PATH/service_multinet_exec set_multicast_mac &
 
 #echo_t "[utopia][init] started dropbear process"
 #/etc/utopia/service.d/service_sshd.sh sshd-start &
+
+echo 1 > /proc/sys/net/ipv4/ip_forward
