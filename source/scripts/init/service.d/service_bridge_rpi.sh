@@ -450,7 +450,8 @@ virtual_interface_ebtables_rules ()
 {
     CMDIAG_IF=`syscfg get cmdiag_ifname`
     CMDIAG_MAC=`cat /sys/class/net/${CMDIAG_IF}/address`   
-    EROUTER_MAC=`cat /sys/class/net/erouter0/address`
+    wan_if=`syscfg get wan_physical_ifname`
+    EROUTER_MAC=`cat /sys/class/net/$wan_if/address`
     BRIDGE_NAME=`syscfg get lan_ifname`
     LAN_IP=`syscfg get lan_ipaddr`
      if [ "$1" = "enable" ] ; then
