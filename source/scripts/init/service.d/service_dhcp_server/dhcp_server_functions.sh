@@ -901,7 +901,7 @@ fi
    #echo "interface=$LAN_IFNAME" >> $LOCAL_DHCP_CONF
    echo "expand-hosts" >> $LOCAL_DHCP_CONF
    echo "cache-size=10240" >> $LOCAL_DHCP_CONF
-
+   echo "min-port=11000" >> $LOCAL_DHCP_CONF
       LOG_LEVEL=`syscfg get log_level`
    if [ "" = "$LOG_LEVEL" ] ; then
        LOG_LEVEL=1
