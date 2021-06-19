@@ -503,6 +503,7 @@ elif [ "$FACTORY_RESET_WIFI" = "$SYSCFG_FR_VAL" ]; then
     create_wifi_default
     syscfg unset $FACTORY_RESET_KEY
 #<<zqiu
+    FACTORY_RESET_REASON=true
 fi
 #echo_t "[utopia][init] Cleaning up vendor nvram"
 # /etc/utopia/service.d/nvram_cleanup.sh
@@ -733,15 +734,21 @@ if [ "$FACTORY_RESET_REASON" = "true" ]; then
    if [ -e "/usr/bin/onboarding_log" ]; then
        /usr/bin/onboarding_log "[utopia][init] Detected last reboot reason as factory-reset"
    fi
-   syscfg set X_RDKCENTRAL-COM_LastRebootReason "factory-reset"
-   syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
+   if [ "$FACTORY_RESET_RGWIFI" = "$SYSCFG_FR_VAL" ]; then
+       syscfg set X_RDKCENTRAL-COM_LastRebootReason "factory-reset-router"
+       syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
+   else
+       syscfg set X_RDKCENTRAL-COM_LastRebootReason "factory-reset"
+       syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
+   fi
 else
    rebootReason=`syscfg get X_RDKCENTRAL-COM_LastRebootReason`
    rebootCounter=`syscfg get X_RDKCENTRAL-COM_LastRebootCounter`
    echo_t "[utopia][init] X_RDKCENTRAL-COM_LastRebootReason ($rebootReason)"
-   if [ "$rebootReason" = "factory-reset" ]; then
+   if [ "$rebootReason" = "factory-reset" ] || [ "$rebootReason" = "factory-reset-router" ]; then
       echo_t "[utopia][init] Setting last reboot reason as unknown"
       syscfg set X_RDKCENTRAL-COM_LastRebootReason "unknown"
+      syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
    fi
       if [ "`cat /proc/P-UNIT/status|grep "Last reset origin"|awk '{ print $9 }'`" == "RESET_ORIGIN_HW" ]; then
          syscfg set X_RDKCENTRAL-COM_LastRebootReason "HW or Power-On Reset"
