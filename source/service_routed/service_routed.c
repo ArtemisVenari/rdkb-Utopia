@@ -495,6 +495,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
     char prefix[64], orig_prefix[64], lan_addr[64];
     char ipv6_wan_defrtr[16] = {0};
     char preferred_lft[16], valid_lft[16];
+    char prev_valid_lft[16] = {0};
 #if defined(MULTILAN_FEATURE)
     char orig_lan_prefix[64];
 #endif
@@ -569,6 +570,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
 #else
     sysevent_get(sefd, setok, "ipv6_prefix", prefix, sizeof(prefix));
     sysevent_get(sefd, setok, "previous_ipv6_prefix", orig_prefix, sizeof(orig_prefix));
+    sysevent_get(sefd, setok, "previous_ipv6_prefix_vldtime", prev_valid_lft, sizeof(prev_valid_lft));
 #ifndef _HUB4_PRODUCT_REQ_
     sysevent_get(sefd, setok, "current_lan_ipv6address", lan_addr, sizeof(lan_addr));
 #else
@@ -734,9 +736,9 @@ static int gen_zebra_conf(int sefd, token_t setok)
 #else
             if (strlen(orig_prefix)) {
                 if (strcmp(dhcpv6_server_type, "1" ) == 0)
-                    fprintf(fp, "   ipv6 nd prefix %s 0 0 off-link no-autoconfig\n", orig_prefix);
+                    fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", orig_prefix, prev_valid_lft );
                 else
-                    fprintf(fp, "   ipv6 nd prefix %s 0 0 router-address\n", orig_prefix);
+                    fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", orig_prefix, prev_valid_lft);
             }
 #endif
 
