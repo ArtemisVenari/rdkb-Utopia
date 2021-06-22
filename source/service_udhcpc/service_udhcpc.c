@@ -1080,7 +1080,6 @@ int handle_wan(udhcpc_script_t *pinfo)
         dns_changed=false; 
         sysevent_set(sysevent_fd, sysevent_token, "dhcp_domain",getenv("domain"), 0);
     }
-#endif
     return 0;
 #endif
 }
