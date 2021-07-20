@@ -244,6 +244,7 @@ typedef enum _UtopiaValue
     UtopiaValue_Firewall_BlockHttpV6,
     UtopiaValue_Firewall_BlockP2p,
     UtopiaValue_Firewall_BlockP2pV6,
+    UtopiaValue_Firewall_BlockRFC1918,
     UtopiaValue_Firewall_Level,
     UtopiaValue_Firewall_LevelV6,
     UtopiaValue_Firewall_TrueStaticIpEnable,
@@ -302,6 +303,7 @@ typedef enum _UtopiaValue
     UtopiaValue_SPF_InternalPort,
     UtopiaValue_SPF_ToIp,
     UtopiaValue_SPF_ToIpV6,
+    UtopiaValue_SPF_RemoteHost,
     UtopiaValue_PortRangeForward,
     UtopiaValue_PFR_Enabled,
     UtopiaValue_PFR_Name,
@@ -312,6 +314,7 @@ typedef enum _UtopiaValue
     UtopiaValue_PFR_ToIp,
     UtopiaValue_PFR_PublicIp,
 	UtopiaValue_PFR_ToIpV6,
+    UtopiaValue_PFR_RemoteHost,
     UtopiaValue_QoSPolicy,
     UtopiaValue_QoSDefinedPolicy,
     UtopiaValue_QDP_Name,
@@ -582,7 +585,7 @@ typedef enum _UtopiaValue
     UtopiaValue_ParentalControl_ManagedDevice_StartTime,
     UtopiaValue_ParentalControl_ManagedDevice_EndTime,
     UtopiaValue_ParentalControl_ManagedDevice_Days,
-    #if defined(DDNS_BROADBANDFORUM)
+    #if defined(DDNS_BROADBANDFORUM) || defined(_DT_WAN_Manager_Enable_)
     UtopiaValue_DynamicDnsClientCount,
     UtopiaValue_DynamicDnsClient,
     UtopiaValue_DynamicDnsClient_InsNum,

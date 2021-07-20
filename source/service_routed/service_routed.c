@@ -478,11 +478,13 @@ static int gen_zebra_conf(int sefd, token_t setok)
             v_secure_pclose(ptr);
         }
     }
+/*
     else
     {
         syscfg_set(NULL, "dhcpv6spool00::X_RDKCENTRAL_COM_DNSServersEnabled", "0");
         syscfg_commit();
     }
+*/
     FILE *fp = NULL;
     char rtmod[16], static_rt_cnt[16], ra_en[16], dh6s_en[16];
     char ra_interval[8] = {0};
@@ -491,11 +493,13 @@ static int gen_zebra_conf(int sefd, token_t setok)
     char dnssl_lft[16];
     unsigned int dnssllft = 0;
     char prefix[64], orig_prefix[64], lan_addr[64];
+    char ipv6_wan_defrtr[16] = {0};
     char preferred_lft[16], valid_lft[16];
+    char prev_valid_lft[16] = {0};
 #if defined(MULTILAN_FEATURE)
     char orig_lan_prefix[64];
 #endif
-    char m_flag[16], o_flag[16];
+    char m_flag[16], o_flag[16], ra_mtu[16], pref[16];;
     char rec[256], val[512];
     char buf[6];
     char rfCpEnable[6] = {0};
@@ -513,7 +517,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
         "!password zebra\n"
         "!enable password admin\n"
         "!log stdout\n"
-        "log file /var/log/zebra.log errors\n"
+        "log file /var/log/zebra.log \n"
         "table 255\n";
     unsigned int l2_insts[4] = {0};
     unsigned int enabled_iface_num = 0;
@@ -523,6 +527,8 @@ static int gen_zebra_conf(int sefd, token_t setok)
     char lan_addr_prefix[64] = {0};
 #endif
     char wan_st[16] = {0};
+    char dhcpv6_server_type[5]= {0};
+    syscfg_get(NULL, "dhcpv6s00::servertype", dhcpv6_server_type, sizeof(dhcpv6_server_type));
 
 #ifdef _HUB4_PRODUCT_REQ_
     char server_type[16] = {0};
@@ -564,6 +570,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
 #else
     sysevent_get(sefd, setok, "ipv6_prefix", prefix, sizeof(prefix));
     sysevent_get(sefd, setok, "previous_ipv6_prefix", orig_prefix, sizeof(orig_prefix));
+    sysevent_get(sefd, setok, "previous_ipv6_prefix_vldtime", prev_valid_lft, sizeof(prev_valid_lft));
 #ifndef _HUB4_PRODUCT_REQ_
     sysevent_get(sefd, setok, "current_lan_ipv6address", lan_addr, sizeof(lan_addr));
 #else
@@ -610,13 +617,10 @@ static int gen_zebra_conf(int sefd, token_t setok)
 #else
     sysevent_get(sefd, setok, "ipv6_prefix_prdtime", preferred_lft, sizeof(preferred_lft));
     sysevent_get(sefd, setok, "ipv6_prefix_vldtime", valid_lft, sizeof(valid_lft));
+    sysevent_get(sefd, setok, "ipv6_wan_defrtr", ipv6_wan_defrtr, sizeof(ipv6_wan_defrtr));
 #endif
     syscfg_get(NULL, "lan_ifname", lan_if, sizeof(lan_if));
 #endif
-    if (atoi(preferred_lft) <= 0)
-        snprintf(preferred_lft, sizeof(preferred_lft), "300");
-    if (atoi(valid_lft) <= 0)
-        snprintf(valid_lft, sizeof(valid_lft), "300");
 
     if ( atoi(preferred_lft) > atoi(valid_lft) )
         snprintf(preferred_lft, sizeof(preferred_lft), "%s",valid_lft);
@@ -711,13 +715,18 @@ static int gen_zebra_conf(int sefd, token_t setok)
             if (strlen(prefix))
             {
                 //If WAN has stopped, advertise the prefix with lifetime 0 so LAN clients don't use it any more
-                if (strcmp(wan_st, "stopped") == 0)
-                {
-                    fprintf(fp, "   ipv6 nd prefix %s 0 0\n", prefix);
+                if (strcmp(wan_st, "stopped") == 0) {
+                    if (strcmp(dhcpv6_server_type, "1" ) == 0)
+                        fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", prefix, valid_lft);
+                    else
+                        fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", prefix, valid_lft);
                 }
                 else
                 {
-                    fprintf(fp, "   ipv6 nd prefix %s %s %s\n", prefix, valid_lft, preferred_lft);
+                    if (strcmp(dhcpv6_server_type, "1" ) == 0)
+                        fprintf(fp, "   ipv6 nd prefix %s %s %s off-link no-autoconfig\n", prefix, valid_lft, preferred_lft);
+                    else
+                        fprintf(fp, "   ipv6 nd prefix %s %s %s router-address\n", prefix, valid_lft, preferred_lft);
                 }
             }
 
@@ -725,8 +734,12 @@ static int gen_zebra_conf(int sefd, token_t setok)
             if (strlen(orig_lan_prefix))
                 fprintf(fp, "   ipv6 nd prefix %s 0 0\n", orig_lan_prefix);
 #else
-            if (strlen(orig_prefix))
-                fprintf(fp, "   ipv6 nd prefix %s 0 0\n", orig_prefix);
+            if (strlen(orig_prefix)) {
+                if (strcmp(dhcpv6_server_type, "1" ) == 0)
+                    fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", orig_prefix, prev_valid_lft );
+                else
+                    fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", orig_prefix, prev_valid_lft);
+            }
 #endif
 
 #endif//_HUB4_PRODUCT_REQ_
@@ -742,14 +755,14 @@ static int gen_zebra_conf(int sefd, token_t setok)
             }
 #else
 #ifndef _HUB4_PRODUCT_REQ_
-        fprintf(fp, "   ipv6 nd ra-interval 3\n");
+        fprintf(fp, "   ipv6 nd ra-interval 60\n"); //Set ra-interval to default 60 seconds.
 #else
         fprintf(fp, "   ipv6 nd ra-interval 180\n");
 #endif //_HUB4_PRODUCT_REQ_
 #endif
 
             /* If WAN is stopped or not in IPv6 or dual stack mode, send RA with router lifetime of zero */
-            if ( (strcmp(wan_st, "stopped") == 0) || (atoi(rtmod) != 2 && atoi(rtmod) != 3) )
+            if ( (strcmp(wan_st, "stopped") == 0) || (strcmp(ipv6_wan_defrtr, "0") == 0) || (strcmp(preferred_lft, "0") == 0) || (strcmp(valid_lft, "0") == 0) || (atoi(rtmod) != 2 && atoi(rtmod) != 3) )
             {
                 fprintf(fp, "   ipv6 nd ra-lifetime 0\n");
             }
@@ -777,11 +790,28 @@ static int gen_zebra_conf(int sefd, token_t setok)
             else if (strcmp(o_flag, "0") == 0)
                 fprintf(fp, "   no ipv6 nd other-config-flag\n");
 #endif
+
+        syscfg_get(NULL, "router_mtu", ra_mtu, sizeof(ra_mtu));
+        if (strcmp(ra_mtu, "0") != 0)
+            fprintf(fp, "   ipv6 nd mtu %s\n", ra_mtu);
+
         syscfg_get(NULL, "dhcpv6s_enable", dh6s_en, sizeof(dh6s_en));
         if (strcmp(dh6s_en, "1") == 0)
             fprintf(fp, "   ipv6 nd other-config-flag\n");
 
-        fprintf(fp, "   ipv6 nd router-preference medium\n");
+        syscfg_get(NULL, "router_preference",pref, sizeof(pref));
+        if (strcmp(pref, "1") == 0)
+        {
+            fprintf(fp, "   ipv6 nd router-preference high\n");
+        }
+        else if(strcmp(pref, "2") == 0)
+        {
+            fprintf(fp, "   ipv6 nd router-preference medium\n");
+        }
+        else
+        {
+               fprintf(fp, "   ipv6 nd router-preference low\n");
+        }
 
 	// During captive portal no need to pass DNS
 	// Check the reponse code received from Web Service
@@ -943,6 +973,11 @@ static int gen_zebra_conf(int sefd, token_t setok)
         		fprintf(fp, "   ipv6 nd rdnss %s 86400\n", tok);
 #endif
                 }
+                        memset(val, 0, sizeof(val));
+                        syscfg_get(NULL, "lan_domain", val, sizeof(val));
+                        if(val[0] != '0')
+                            fprintf(fp, "   ipv6 nd dnssl %s infinite\n", val);
+
 
                 if (atoi(valid_lft) <= 3*atoi(ra_interval))
                 {
@@ -1033,10 +1068,14 @@ if(!strncmp(out,"true",strlen(out)))
 		sprintf(cmd, "%s%s",interface_name,"_ipaddr_v6");
 		memset(prefix,0,sizeof(prefix));
 		sysevent_get(sefd, setok, cmd, prefix, sizeof(prefix));
-        	if (strlen(prefix) != 0)
-            		fprintf(fp, "   ipv6 nd prefix %s %s %s\n", prefix, valid_lft, preferred_lft);
+        	if (strlen(prefix) != 0) {
+                    if (strcmp(dhcpv6_server_type,"1") == 0 )
+                        fprintf(fp, "   ipv6 nd prefix %s %s %s off-link no-autoconfig\n", prefix, valid_lft, preferred_lft);
+                    else
+                        fprintf(fp, "   ipv6 nd prefix %s %s %s router-address\n", prefix, valid_lft, preferred_lft);
+                }
 
-        	fprintf(fp, "   ipv6 nd ra-interval 3\n");
+        	fprintf(fp, "   ipv6 nd ra-interval 60\n"); //Set ra-interval to default 60 seconds.
         	fprintf(fp, "   ipv6 nd ra-lifetime 180\n");
 
         	syscfg_get(NULL, "router_managed_flag", m_flag, sizeof(m_flag));
@@ -1089,6 +1128,11 @@ if(!strncmp(out,"true",strlen(out)))
                         // Modifying rdnss value to fix the zebra config.
                         fprintf(fp, "   ipv6 nd rdnss %s 86400\n", tok);
                         }
+
+                        memset(out,0,sizeof(out));
+                        syscfg_get(NULL, "lan_domain", out, sizeof(out));
+                        if(out[0] != '0')
+                            fprintf(fp, "   ipv6 nd dnssl %s infinite\n", out);
          }
 
 	fprintf(fp, "interface %s\n", interface_name);
@@ -1158,7 +1202,6 @@ static int radv_start(struct serv_routed *sr)
         return -1;
     }
 
-#ifdef _HUB4_PRODUCT_REQ_
     /*
      * SKYH4-1765: we do not want to restart the zebra if it is already running,
      * since restarting zebra will leads clear the current zebra counter.
@@ -1170,7 +1213,6 @@ static int radv_start(struct serv_routed *sr)
         kill(pid, SIGUSR1);
         return 0;
     }
-#endif
     daemon_stop(ZEBRA_PID_FILE, "zebra");
 
 #if defined(_COSA_FOR_BCI_)
@@ -1188,11 +1230,17 @@ static int radv_start(struct serv_routed *sr)
 
 static int radv_stop(struct serv_routed *sr)
 {
+    char ra_en[16] = {0};
+    syscfg_get(NULL, "router_adv_enable", ra_en, sizeof(ra_en));
+    if (strcmp(ra_en, "0") == 0) {
+        // stopping zebra daemon when router adv is disabled via data model
+        return daemon_stop(ZEBRA_PID_FILE, "zebra");
+    }
     /*
      * SKYH4-1765: we do not want to restart the zebra if it is already running,
      * since restarting zebra will clear the current zebra counter.
      */
-    if(is_daemon_running(ZEBRA_PID_FILE, "zebra"))
+    else if(is_daemon_running(ZEBRA_PID_FILE, "zebra"))
     {
         return 0;
     }

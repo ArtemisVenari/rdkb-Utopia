@@ -50,6 +50,14 @@ echo_t "* Copyright 2014 Cisco Systems, Inc.                               "
 echo_t "* Licensed under the Apache License, Version 2.0                   "
 echo_t "*******************************************************************"
 
+#TODO: Need to replaced once the sky version 2 code is available
+mkdir -p /nvram
+cp /usr/ccsp/ccsp_msg.cfg /tmp
+touch /tmp/cp_subsys_ert
+ln -s /var/spool/cron/crontabs /
+mkdir -p /var/run/firewall
+touch /nvram/ETHWAN_ENABLE
+
 source $UTOPIA_PATH/log_capture_path.sh
 if [ -f /etc/device.properties ]
 then
@@ -220,6 +228,12 @@ echo_t "[utopia][init] Starting udev.."
 
 mkdir -p /tmp/cron
 
+# Starting ipv6 route monitor daemon during bootup
+/usr/bin/ipv6rtmon &
+
+# Creating the dibbler directory for its pid files in /tmp
+mkdir -p /tmp/dibbler
+
 BUTTON_THRESHOLD=15
 FACTORY_RESET_KEY=factory_reset
 FACTORY_RESET_RGWIFI=y
@@ -330,6 +344,21 @@ else
    echo 204 > /var/tmp/networkresponse.txt
 fi
 
+#TODO: Applying the patch received from the BCM for GWP.Need to revisit when SKY Version 2 is available to handle GWP gap.
+if [ "$BOX_TYPE" == "TCH" -o "$BOX_TYPE" = "SGC" ]; then
+    ethswctl -c wan -i eth0 -o enable
+fi
+
+if [ "$BOX_TYPE" == "SGC" ];then
+   if [ "$wantype" == "DSL" ];then
+      ifconfig eth0 down
+      ifconfig eth4 down
+      ethctl eth4 phy-crossbar port 9
+      ifconfig eth0 up
+      ifconfig eth4 up
+  fi
+fi
+
 SYSCFG_LAN_DOMAIN=`syscfg get lan_domain` 
 
 if [ "$SYSCFG_LAN_DOMAIN" == "utopia.net" ]; then
@@ -347,6 +376,8 @@ fi
 if [ -f $SYSCFG_NEW_FILE ];then
 	rm -rf $SYSCFG_NEW_FILE
 fi
+
+touch /nvram/ETHWAN_ENABLE
 
 # Read reset duration to check if the unit was rebooted by pressing the HW reset button
 if cat /proc/P-UNIT/status | grep -q "Reset duration from shadow register"; then
@@ -472,6 +503,7 @@ elif [ "$FACTORY_RESET_WIFI" = "$SYSCFG_FR_VAL" ]; then
     create_wifi_default
     syscfg unset $FACTORY_RESET_KEY
 #<<zqiu
+    FACTORY_RESET_REASON=true
 fi
 #echo_t "[utopia][init] Cleaning up vendor nvram"
 # /etc/utopia/service.d/nvram_cleanup.sh
@@ -485,6 +517,14 @@ fi
 if [ -f /nvram/cacert.pem ]; then
         echo "Remove HTTPS root certificate for TR69 if available in NVRAM to prevent updating cert"
 	rm -f /nvram/cacert.pem
+fi
+
+if [ "$BOX_TYPE" = "TCH" ];then
+       cp /proc/rip/0159 /certs/client.crt
+       cp /proc/rip/015a /certs/client.key
+else
+       cp /nvram/client.crt /certs/client.crt
+       cp /nvram/client.key /certs/client.key
 fi
 
 #echo_t "[utopia][init] Starting system logging"
@@ -647,6 +687,11 @@ fi
 ifconfig l2sd0.4090 192.168.251.1 netmask 255.255.255.0 up
 ip rule add from all iif l2sd0.4090 lookup erouter
 
+# WebPa enabling / disabling as per setting
+WEBPA_ENABLED=`syscfg get webpa_enable`
+if [ "$WEBPA_ENABLED" = "0" ]; then
+    systemctl stop parodus
+fi
 
 # RDKB-15951 : Dedicated l2sd0 vlan for Mesh Bhaul
 vconfig add l2sd0 1060
@@ -689,15 +734,21 @@ if [ "$FACTORY_RESET_REASON" = "true" ]; then
    if [ -e "/usr/bin/onboarding_log" ]; then
        /usr/bin/onboarding_log "[utopia][init] Detected last reboot reason as factory-reset"
    fi
-   syscfg set X_RDKCENTRAL-COM_LastRebootReason "factory-reset"
-   syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
+   if [ "$FACTORY_RESET_RGWIFI" = "$SYSCFG_FR_VAL" ]; then
+       syscfg set X_RDKCENTRAL-COM_LastRebootReason "factory-reset-router"
+       syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
+   else
+       syscfg set X_RDKCENTRAL-COM_LastRebootReason "factory-reset"
+       syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
+   fi
 else
    rebootReason=`syscfg get X_RDKCENTRAL-COM_LastRebootReason`
    rebootCounter=`syscfg get X_RDKCENTRAL-COM_LastRebootCounter`
    echo_t "[utopia][init] X_RDKCENTRAL-COM_LastRebootReason ($rebootReason)"
-   if [ "$rebootReason" = "factory-reset" ]; then
+   if [ "$rebootReason" = "factory-reset" ] || [ "$rebootReason" = "factory-reset-router" ]; then
       echo_t "[utopia][init] Setting last reboot reason as unknown"
       syscfg set X_RDKCENTRAL-COM_LastRebootReason "unknown"
+      syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
    fi
       if [ "`cat /proc/P-UNIT/status|grep "Last reset origin"|awk '{ print $9 }'`" == "RESET_ORIGIN_HW" ]; then
          syscfg set X_RDKCENTRAL-COM_LastRebootReason "HW or Power-On Reset"
@@ -814,6 +865,18 @@ fi
 
 syscfg commit
 
+mount-copybind /tmp/ca-certificates.conf /etc/ca-certificates.conf
+source /lib/rdk/getpartnerid.sh
+partnerId=$(getPartnerId)
+if [ "$partnerId" = "telekom-hu" ]; then
+       echo "ca-certs-hu.pem" > /etc/ca-certificates.conf
+       cp /usr/share/ca-certificates/ca-crl-hu.pem /etc/ssl/certs/ca_crl.crt
+else
+       echo "ca-certs-dev.pem" > /etc/ca-certificates.conf
+       cp /usr/share/ca-certificates/ca-crl-dev.pem /etc/ssl/certs/ca_crl.crt
+fi
+update-ca-certificates
+
 #ifdef CISCO_XB3_PLATFORM_CHANGES
 ## Remove after setting last reboot reason
 if [ -f "/nvram/RDKB3939-500_RebootNotByPwrOff" ]; then
@@ -869,3 +932,35 @@ $UTOPIA_PATH/service_multinet_exec set_multicast_mac &
 
 #echo_t "[utopia][init] started dropbear process"
 #/etc/utopia/service.d/service_sshd.sh sshd-start &
+
+# Port scan protection ipset rules
+ipset create port_scanners hash:ip family inet hashsize 32768 maxelem 65536 timeout 120
+ipset create scanned_ports hash:ip,port family inet hashsize 32768 maxelem 65536 timeout 60
+
+echo_t "[utopia][init] Setting NAT Timeouts"
+UDP_TIMEOUT=`syscfg get UDP_TIMEOUT`
+UDP_STREAM_TIMEOUT=`syscfg get UDP_STREAM_TIMEOUT`
+ICMP_TIMEOUT=`syscfg get ICMP_TIMEOUT`
+
+if [ $UDP_TIMEOUT -lt 120 ]; then
+    UDP_TIMEOUT=120 # Default proc value for nf_conntrack_udp_timeout in Linux
+fi
+echo $UDP_TIMEOUT > /proc/sys/net/netfilter/nf_conntrack_udp_timeout
+
+if [ $UDP_STREAM_TIMEOUT -lt $UDP_TIMEOUT ]; then
+    UDP_STREAM_TIMEOUT=$(($UDP_TIMEOUT+180))  # Default proc value for nf_conntrack_udp_timeout_stream in Linux
+fi
+echo $UDP_STREAM_TIMEOUT > /proc/sys/net/netfilter/nf_conntrack_udp_timeout_stream
+
+if [ $ICMP_TIMEOUT -lt 60 ]; then
+    ICMP_TIMEOUT=60 # Default proc value for nf_conntrack_icmp_timeout in RFC
+fi
+echo $ICMP_TIMEOUT > /proc/sys/net/netfilter/nf_conntrack_icmp_timeout
+
+echo 1 > /proc/sys/net/ipv4/ip_forward
+echo 1 >> /proc/sys/net/ipv6/conf/all/forwarding
+
+if [ -f /usr/bin/inotify-minidump-watcher ];then
+       mkdir -p /minidumps
+      /usr/bin/inotify-minidump-watcher /minidumps /lib/rdk/uploadDumps.sh  "\"\" 0" "*.dmp" &
+fi

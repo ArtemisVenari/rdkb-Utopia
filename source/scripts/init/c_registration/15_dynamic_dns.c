@@ -32,7 +32,7 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 **********************************************************************/
-#if defined(DDNS_BROADBANDFORUM)
+#if defined(DDNS_BROADBANDFORUM) || defined(_DT_WAN_Manager_Enable_)
 #include <stdio.h>
 #include "srvmgr.h"
 
@@ -54,7 +54,7 @@ void srv_unregister(void) {
 #endif
 int main(int argc, char **argv)
 {
-#if defined(DDNS_BROADBANDFORUM)
+#if defined(DDNS_BROADBANDFORUM) || defined(_DT_WAN_Manager_Enable_)
    cmd_type_t choice = parse_cmd_line(argc, argv);
    
    switch(choice) {

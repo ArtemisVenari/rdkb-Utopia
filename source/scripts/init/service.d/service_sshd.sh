@@ -54,12 +54,16 @@ else
    	CMINTERFACE="wan0"
    fi
 fi
+
+pwd=`cat /etc/shadow | grep root | cut -d: -f2`
+[ -z $pwd ] && echo -e "DTelek0m\nDTelek0m" | passwd root
+
+SSHPORT=`syscfg get mgmt_wan_sshport`
     
 SERVICE_NAME="sshd"
 SELF_NAME="`basename $0`"
 
-PID_FILE=/var/run/dropbear.pid
-PMON=/etc/utopia/service.d/pmon.sh
+PID_FILE=/var/run/dropbear
 if [ -f /etc/mount-utils/getConfigFile.sh ];then
       mkdir -p /tmp/.dropbear
      . /etc/mount-utils/getConfigFile.sh
@@ -124,11 +128,16 @@ do_start() {
 #   /etc/init.d/dropbear start
    #dropbear -r /etc/rsa_key.priv
    #dropbear -E -s -b /etc/sshbanner.txt -s -a -p [$CM_IP]:22
-   if [ "$CM_IP" = "" ]
-   then
-      #wan0 should be in v4
-      CM_IP=`ifconfig ${CMINTERFACE} | grep "inet addr" | awk '/inet/{print $2}'  | cut -f2 -d:`
-   fi
+
+   #wan0 should be in v4
+   CM_IP="${CM_IP} `ifconfig ${CMINTERFACE} | grep "inet addr" | awk '/inet/{print $2}'  | cut -f2 -d:`"
+   #LAN side
+   #LAN Side SSH blocked
+   #LANINTERFACE="brlan0"
+   #CM_IP="${CM_IP} `ifconfig ${LANINTERFACE} | grep inet6 | grep Global | awk '/inet6/{print $3}' | cut -d '/' -f1`"
+   #CM_IP="${CM_IP} `ifconfig ${LANINTERFACE} | grep "inet addr" | awk '/inet/{print $2}'  | cut -f2 -d:`"
+
+   for i in $CM_IP; do
    DROPBEAR_PARAMS_1="/tmp/.dropbear/dropcfg1$$"
    DROPBEAR_PARAMS_2="/tmp/.dropbear/dropcfg2$$"
    getConfigFile $DROPBEAR_PARAMS_1
@@ -152,19 +161,20 @@ do_start() {
       echo_t "utopia: dropbear could not be started on erouter0 IPv6 interface."
     fi
    else
-   	dropbear -E -s -b /etc/sshbanner.txt -a -r $DROPBEAR_PARAMS_1 -r $DROPBEAR_PARAMS_2 -p [$CM_IP]:22 -P $PID_FILE
+        dropbear -R -E -a -r $DROPBEAR_PARAMS_1 -r $DROPBEAR_PARAMS_2 -p [$i]:$SSHPORT -P ${PID_FILE}_${i}.pid -B
    fi
 
    # The PID_FILE created after demonize the process. So added delay for 1 sec.
    sleep 1
-   if [ ! -f "$PID_FILE" ] ; then
-      echo_t "[utopia] $PID_FILE file is not created"
+   if [ ! -f "${PID_FILE}_${i}.pid" ] ; then
+      echo_t "[utopia] ${PID_FILE}_${i}.pid file is not created"
       #Create the pid file in case if it not created by dropbear
       ps | grep 'dropbear -E -s -b /etc/sshbanner.txt' | head -n1 |  awk '{print $1;}' > $PID_FILE
       echo_t "[utopia] $PID_FILE file is created explicitly"
    else
-      echo_t "[utopia] $PID_FILE file is created. PID : `cat $PID_FILE`"
+      echo_t "[utopia] $PID_FILE file is created. PID : `cat ${PID_FILE}_${i}.pid`"
    fi
+   done
    sysevent set ssh_daemon_state up
 }
 
@@ -182,9 +192,13 @@ do_stop() {
        done < "$tmp_filename"
      rm $tmp_filename  
    else
-     kill -9 `cat $PID_FILE`
+     kill -9 `cat $PID_FILE*`
+     rm -f $PID_FILE*
+     pidlist=`pidof dropbear`
+     for i in $pidlist; do
+       kill -9 $i
+     done
    fi
-   rm -f $PID_FILE
 #    /etc/init.d/dropbear stop
 }
 
@@ -208,10 +222,10 @@ service_start() {
         fi
       done
    fi
-	#SSH_ENABLE=`syscfg get mgmt_wan_sshaccess`
-	CURRENT_WAN_STATE=`sysevent get wan-status`
+	SSH_ENABLE=`syscfg get mgmt_wan_sshaccess`
+#	CURRENT_WAN_STATE=`sysevent get wan-status`
 
-	#if [ "$SSH_ENABLE" = "0" ]; then
+        if [ "$SSH_ENABLE" = "1" ]; then
 
    if ([ "$BOX_TYPE" = "XB6" -a "$MANUFACTURE" = "Arris" ] || [ "$MODEL_NUM" = "INTEL_PUMA" ]) ;then
         if [ -n "$CURRENT_WAN_STATE" -a "started" = "$CURRENT_WAN_STATE" ]; then
@@ -219,7 +233,8 @@ service_start() {
             do_start
         fi
    else
-	    if [ ! -f "$PID_FILE" ] ; then
+        PID_LIST=`cat $PID_FILE* | wc -l`
+               if [ "$PID_LIST" -eq 0 ] ; then
 			#while [ "started" != "$CURRENT_WAN_STATE" ]
 			#do
 				#sleep 1
@@ -235,7 +250,7 @@ service_start() {
 		sysevent set ${SERVICE_NAME}-status "started"
 		rm -rf /tmp/.dropbear/*
 
-	#fi
+	fi
 
 }
 
@@ -243,9 +258,10 @@ service_stop () {
    echo_t "[utopia] stopping ${SERVICE_NAME} service"
 #   ulog ${SERVICE_NAME} status "stopping ${SERVICE_NAME} service" 
 
+   PID_LIST=`cat $PID_FILE* | wc -l`
+   if [ "$PID_LIST" -gt 0 ] ; then
    do_stop
-
-   $PMON unsetproc ssh 
+   fi
 
    sysevent set ${SERVICE_NAME}-errinfo
    sysevent set ${SERVICE_NAME}-status "stopped"

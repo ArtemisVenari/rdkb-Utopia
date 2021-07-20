@@ -89,6 +89,7 @@ typedef int boolean_t;
 #define NAME_SZ 64      // generic friendly name size
 #define IAP_KEYWORD_SZ    64
 #define TR_ALIAS_SZ 65
+#define DEST_NAME_SZ 256
 
 
 /*
@@ -369,8 +370,9 @@ typedef struct portFwdSingle {
     protocol_t protocol;
     int        external_port;
     int        internal_port;
-    char       dest_ip[IPADDR_SZ];              
-    char       dest_ipv6[64];              
+    char       dest_ip[DEST_NAME_SZ];
+    char       dest_ipv6[64];
+    char       remotehost[IPADDR_SZ];
 } portFwdSingle_t;
 
 typedef struct portMapDyn {
@@ -395,9 +397,10 @@ typedef struct portFwdRange {
     int        end_port;
     int        internal_port;
     int        internal_port_range_size;
-    char       dest_ip[IPADDR_SZ];              
-    char       dest_ipv6[64];    
-	char       public_ip[IPADDR_SZ];              
+    char       dest_ip[DEST_NAME_SZ];
+    char       dest_ipv6[64];
+    char       remotehost[IPADDR_SZ];
+    char       public_ip[IPADDR_SZ];
 } portFwdRange_t;
 
 typedef struct portRangeTrig {
@@ -917,10 +920,12 @@ typedef struct firewall {
     boolean_t allow_ipsec_passthru;
     boolean_t allow_pptp_passthru;
     boolean_t allow_l2tp_passthru;
+    boolean_t allow_ssl_passthru;
     boolean_t filter_http_from_wan;
     boolean_t filter_http_from_wan_v6;
     boolean_t filter_p2p_from_wan;
     boolean_t filter_p2p_from_wan_v6;
+    boolean_t filter_rfc1918_from_wan;
     boolean_t true_static_ip_enable;
     boolean_t true_static_ip_enable_v6;
     boolean_t smart_pkt_dection_enable;
@@ -1181,7 +1186,7 @@ int Utopia_GetDNSServer(UtopiaContext *ctx, DNS_Client_t * dns);
 int Utopia_IPRule_ephemeral_port_forwarding( portMapDyn_t *pmap, boolean_t isCallForAdd );
 int Utopia_privateIpCheck(char *ip_to_check);
 
-#if defined(DDNS_BROADBANDFORUM)
+#if defined(DDNS_BROADBANDFORUM) || defined(_DT_WAN_Manager_Enable_)
 typedef struct DynamicDnsClient
 {
    unsigned long  InstanceNumber;

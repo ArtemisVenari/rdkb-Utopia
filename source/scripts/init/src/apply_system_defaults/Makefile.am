@@ -19,8 +19,9 @@
 bin_PROGRAMS = apply_system_defaults
 DEPENDS = "hal-platform"
 AM_CFLAGS = -I$(top_srcdir)/source -I$(top_srcdir)/source/include -I$(top_srcdir)/source/util -I$(top_srcdir)/../hal/include  -I${PKG_CONFIG_SYSROOT_DIR}$(includedir)/dbus-1.0 -I${PKG_CONFIG_SYSROOT_DIR}$(libdir)/dbus-1.0/include
+AM_CFLAGS +=  $(CPPFLAGS) $(DBUS_CFLAGS)
 hardware_platform = i686-linux-gnu
-AM_LDFLAGS =  -lpthread -lz -lcjson \
+AM_LDFLAGS =  -lpthread -lz -lccsp_common $(DBUS_LIBS) -lcjson \
                 $(top_builddir)/source/services/lib/libsrvmgr.la \
                 $(top_builddir)/source/sysevent/lib/libsysevent.la \
                 $(top_builddir)/source/syscfg/lib/libsyscfg.la \
@@ -32,4 +33,6 @@ if PLATFORM_HAL_SYNDICATION
 AM_LDFLAGS += "-lhal_platform -lsysevent -lutctx -lutapi -lhal_wifi" 
 endif
 
-apply_system_defaults_SOURCES = apply_system_defaults.c
+AM_LDFLAGS += "-lhal_platform"
+
+apply_system_defaults_SOURCES = msg_bus.c apply_system_defaults.c

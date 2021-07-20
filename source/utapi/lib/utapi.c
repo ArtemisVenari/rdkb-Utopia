@@ -399,9 +399,9 @@ int Utopia_GetLanSettings (UtopiaContext *ctx, lanSetting_t *lan)
     UTOPIA_GET(ctx, UtopiaValue_LAN_IPAddr, lan->ipaddr, IPADDR_SZ);
     UTOPIA_GET(ctx, UtopiaValue_LAN_Netmask, lan->netmask, IPADDR_SZ);
     /*just for USGv2*/
-    get_dhcp_wan_domain(lan->domain);
-    if(lan->domain[0]==0)
-        Utopia_Get(ctx, UtopiaValue_LAN_Domain, lan->domain, IPHOSTNAME_SZ);
+    //get_dhcp_wan_domain(lan->domain);
+   // if(lan->domain[0]==0)
+    Utopia_Get(ctx, UtopiaValue_LAN_Domain, lan->domain, IPHOSTNAME_SZ);
     Utopia_Get(ctx, UtopiaValue_LAN_IfName, lan->ifname, IFNAME_SZ);
     s_get_interface_mac(lan->ifname, lan->macaddr, MACADDR_SZ);
 
@@ -1946,6 +1946,7 @@ int Utopia_GetStaticRouteTable (int *count, routeStatic_t **out_sroute)
 static const char *s_blockipsec =  "blockipsec";
 static const char *s_blockpptp =  "blockpptp";
 static const char *s_blockl2tp =  "blockl2tp";
+static const char *s_blockssl = "blockssl";
 
 static int setFWBlockingRule (UtopiaContext *ctx, int w2l_rule_index,
                               const char *ns, const char *name, const char *result)
@@ -1989,6 +1990,7 @@ int Utopia_SetFirewallSettings (UtopiaContext *ctx, firewall_t fw)
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockCookies, fw.filter_web_cookies);
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockHttp, fw.filter_http_from_wan);
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockP2p, fw.filter_p2p_from_wan);
+     UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockRFC1918, fw.filter_rfc1918_from_wan);
 
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockPingV6, fw.filter_anon_req_v6);
      UTOPIA_SETBOOL(ctx, UtopiaValue_Firewall_BlockMulticastV6, fw.filter_multicast_v6);
@@ -2005,15 +2007,14 @@ int Utopia_SetFirewallSettings (UtopiaContext *ctx, firewall_t fw)
 
      int rule_count = 0;
 
-     if (FALSE == fw.allow_ipsec_passthru) {
-         setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "$DROP");
-     }
-     if (FALSE == fw.allow_pptp_passthru) {
-         setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "$DROP");
-     }
-     if (FALSE == fw.allow_l2tp_passthru) {
-         setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "$DROP");
-     }
+         FALSE == fw.allow_ipsec_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "$ACCEPT");
+
+      FALSE == fw.allow_pptp_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "$ACCEPT");
+
+     FALSE == fw.allow_l2tp_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "$ACCEPT");
+
+      FALSE == fw.allow_ssl_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockssl, "ssl", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockssl, "ssl", "$ACCEPT");
+
 
      UTOPIA_SETINT(ctx, UtopiaValue_Firewall_W2LWKRuleCount, rule_count);
 
@@ -2024,6 +2025,7 @@ int Utopia_GetFirewallSettings (UtopiaContext *ctx, firewall_t *fw)
 {
     int rule_count;
     int i;
+    char buf[8];
     
     bzero(fw, sizeof(firewall_t));
 
@@ -2034,6 +2036,8 @@ int Utopia_GetFirewallSettings (UtopiaContext *ctx, firewall_t *fw)
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockIdent, &fw->filter_ident);
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockP2p, &fw->filter_p2p_from_wan);
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockHttp, &fw->filter_http_from_wan);
+    Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockP2pV6, &fw->filter_rfc1918_from_wan);
+    Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockRFC1918, &fw->filter_rfc1918_from_wan);
 
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockPingV6, &fw->filter_anon_req_v6);
     Utopia_GetBool(ctx, UtopiaValue_Firewall_BlockMulticastV6, &fw->filter_multicast_v6);
@@ -2068,20 +2072,35 @@ int Utopia_GetFirewallSettings (UtopiaContext *ctx, firewall_t *fw)
     fw->allow_ipsec_passthru = TRUE;
     fw->allow_pptp_passthru = TRUE;
     fw->allow_l2tp_passthru = TRUE;
+    fw->allow_ssl_passthru = TRUE;
 
-    for (i = 0; i < rule_count; i++) {
-        Utopia_GetIndexed(ctx, UtopiaValue_FW_W2LWellKnown, i + 1, s_tokenbuf, sizeof(s_tokenbuf));
-
-        if (0 == strcmp(s_tokenbuf, s_blockipsec)) {
-            fw->allow_ipsec_passthru = FALSE;
-        }
-        else if (0 == strcmp(s_tokenbuf, s_blockpptp)) {
-            fw->allow_pptp_passthru = FALSE;
-        }
-        else if (0 == strcmp(s_tokenbuf, s_blockl2tp)) {
-            fw->allow_l2tp_passthru = FALSE;
-        }
+     memset(buf, 0, sizeof(buf));
+    syscfg_get(NULL, "blockssl::result", buf, sizeof(buf));
+    if (0 == strcmp("$DROP",buf))
+    {
+           fw->allow_ssl_passthru = FALSE;
     }
+
+    memset(buf, 0, sizeof(buf));
+    syscfg_get(NULL, "blockipsec::result", buf, sizeof(buf));
+    if (0 == strcmp("$DROP",buf))
+    {
+           fw->allow_ipsec_passthru = FALSE;
+    }
+
+    memset(buf, 0, sizeof(buf));
+    syscfg_get(NULL, "blockl2tp::result", buf, sizeof(buf));
+    if (0 == strcmp("$DROP",buf))
+    {
+           fw->allow_l2tp_passthru = FALSE;
+    }
+
+    memset(buf, 0, sizeof(buf));
+    syscfg_get(NULL, "blockpptp::result", buf, sizeof(buf));
+    if (0 == strcmp("$DROP",buf))
+    {
+           fw->allow_pptp_passthru = FALSE;
+     }
 
     return SUCCESS;
 }
@@ -2089,6 +2108,55 @@ int Utopia_GetFirewallSettings (UtopiaContext *ctx, firewall_t *fw)
 /*
  * Port Mapping Settings
  */
+
+/*
+ * @brief removeConntrackRules() - Function to remove conntrack rules for PortMapping & DMZ based on the reconfiguration done by the user during runtime.
+ */
+static int removeConntrackRules(protocol_t proto, int internalport, char *destination)
+{
+    char buf[256] = {0};
+    char toip[256] = {0};
+    FILE *lanClients = NULL;
+
+    if (proto == -1) { // DMZ
+        memset(buf, 0, sizeof(buf));
+        v_secure_system("conntrack -D -r %s", destination);
+        sprintf(ulog_msg, "%s: Existing conntrack rules for DMZ host %s removed due to reconfiguration.", __FUNCTION__, destination);
+        ulog(ULOG_CONFIG, UL_UTAPI, ulog_msg);
+        return SUCCESS;
+    }
+    else { // PortForwarding
+        if (fopen("/tmp/lanClients", "r" ) == NULL) {  // connected hosts info available in '/tmp/lanClients' file
+            sprintf(ulog_msg, "%s: File /tmp/lanClients (which gives connected hosts info) not present.", __FUNCTION__);
+            ulog(ULOG_CONFIG, UL_UTAPI, ulog_msg);
+            return ERR_FILE_NOT_FOUND;
+        }
+        snprintf(buf, sizeof(buf), "cat /tmp/lanClients | grep -w %s | awk '{print $3}'| tail -1", destination);
+        if (!(lanClients = popen(buf, "r"))) {
+            sprintf(ulog_msg, "%s: Lan client - %s not present in /tmp/lanClients file.", __FUNCTION__, destination);
+            ulog(ULOG_CONFIG, UL_UTAPI, ulog_msg);
+            return ERR_ITEM_NOT_FOUND;
+        }
+        fgets(toip, sizeof(toip), lanClients);
+        toip[strlen(toip) - 1] = '\0';
+        pclose(lanClients);
+        if (proto == BOTH_TCP_UDP ) {
+            memset(buf, 0, sizeof(buf));
+            v_secure_system("conntrack -D -p tcp --reply-port-src %d -r %s", internalport, toip);
+            memset(buf, 0, sizeof(buf));
+            v_secure_system("conntrack -D -p udp --reply-port-src %d -r %s", internalport, toip);
+            sprintf(ulog_msg, "%s: Existing conntrack rules for PortForwarding client %s (for both protocols - TCP & UDP) removed due to reconfiguration.", __FUNCTION__, toip);
+            ulog(ULOG_CONFIG, UL_UTAPI, ulog_msg);
+        }
+        else {
+            v_secure_system("conntrack -D -p %s --reply-port-src %d -r %s", ((proto == TCP)? "tcp" : "udp"), internalport, toip);
+            sprintf(ulog_msg, "%s: Existing conntrack rules for PortForwarding client %s removed due to reconfiguration.", __FUNCTION__, toip);
+            ulog(ULOG_CONFIG, UL_UTAPI, ulog_msg);
+        }
+        return SUCCESS;
+    }
+}
+
 static int s_getportfwd_ruleid (UtopiaContext *ctx, int index)
 {
     int rule_id = -1;
@@ -2147,9 +2215,10 @@ static int s_getportfwd (UtopiaContext *ctx, int index, portFwdSingle_t *portmap
     Utopia_GetIndexedInt(ctx, UtopiaValue_SPF_ExternalPort, index, &portmap->external_port);
     Utopia_GetIndexedInt(ctx, UtopiaValue_SPF_InternalPort, index, &portmap->internal_port);
 //    Utopia_GetIndexedInt(ctx, UtopiaValue_SPF_ToIp, index, &portmap->dest_ip);
-    Utopia_GetIndexed(ctx, UtopiaValue_SPF_ToIp, index, &portmap->dest_ip, IPADDR_SZ);
+    Utopia_GetIndexed(ctx, UtopiaValue_SPF_ToIp, index, &portmap->dest_ip, DEST_NAME_SZ);
     Utopia_GetIndexed(ctx, UtopiaValue_SPF_ToIpV6, index, &portmap->dest_ipv6, IPADDR_SZ);
     Utopia_GetIndexed(ctx, UtopiaValue_SPF_Protocol, index, s_tokenbuf, sizeof(s_tokenbuf));
+    Utopia_GetIndexed(ctx, UtopiaValue_SPF_RemoteHost, index, &portmap->remotehost, IPADDR_SZ);
     portmap->protocol = s_StrToEnum(g_ProtocolMap, s_tokenbuf);
     
     return SUCCESS;
@@ -2165,6 +2234,7 @@ static int s_setportfwd (UtopiaContext *ctx, int index, portFwdSingle_t *portmap
 //    UTOPIA_SETINDEXEDINT(ctx, UtopiaValue_SPF_ToIp, index, portmap->dest_ip);
     UTOPIA_SETINDEXED(ctx, UtopiaValue_SPF_ToIp, index,portmap->dest_ip);
     UTOPIA_SETINDEXED(ctx, UtopiaValue_SPF_ToIpV6, index,portmap->dest_ipv6);
+    UTOPIA_SETINDEXED(ctx, UtopiaValue_SPF_RemoteHost, index,portmap->remotehost);
     char *p = s_EnumToStr(g_ProtocolMap, portmap->protocol);
     UTOPIA_SETINDEXED(ctx, UtopiaValue_SPF_Protocol, index, p);
     
@@ -2181,6 +2251,7 @@ static int s_unsetportfwd (UtopiaContext *ctx, int index)
     UTOPIA_UNSETINDEXED(ctx, UtopiaValue_SPF_ToIp, index);
     UTOPIA_UNSETINDEXED(ctx, UtopiaValue_SPF_ToIpV6, index);
     UTOPIA_UNSETINDEXED(ctx, UtopiaValue_SPF_Protocol, index);
+    UTOPIA_UNSETINDEXED(ctx, UtopiaValue_SPF_RemoteHost, index);
 
     return SUCCESS;
 }
@@ -2199,10 +2270,10 @@ int Utopia_SetPortForwarding (UtopiaContext *ctx, int count, portFwdSingle_t *fw
         {
             return ERR_INVALID_VALUE;
         }
-        if(!IsValid_IPAddr(fwdinfo[i].dest_ip))
+        /*if(!IsValid_IPAddr(fwdinfo[i].dest_ip))
         {
             return ERR_INVALID_IP;       
-        }
+        }*/
     }
 
     Utopia_GetPortForwardingCount(ctx, &old_count);
@@ -2232,10 +2303,10 @@ int Utopia_AddPortForwarding (UtopiaContext *ctx, portFwdSingle_t *portmap)
     {
         return ERR_INVALID_VALUE;
     }
-    else if(!IsValid_IPAddr(portmap->dest_ip))
+    /*else if(!IsValid_IPAddr(portmap->dest_ip))
     {
         return ERR_INVALID_IP;       
-    }
+    }*/
     else if (portmap->rule_id == 0)
     {
         s_setportfwd_ruleid(ctx, count+1, count+1); // maintain legacy behavior for backware compatibility
@@ -2415,7 +2486,7 @@ int Utopia_SetPortForwardingByRuleId (UtopiaContext *ctx, portFwdSingle_t *fwdin
 int Utopia_DelPortForwardingByRuleId (UtopiaContext *ctx, int rule_id)
 {
     int index, count = 0;
-
+    portFwdSingle_t  singleInfo = {0};
     if (rule_id < 0)
     {
         return ERR_ITEM_NOT_FOUND;
@@ -2429,6 +2500,12 @@ int Utopia_DelPortForwardingByRuleId (UtopiaContext *ctx, int rule_id)
     }
 
     // found
+    singleInfo.rule_id = rule_id;
+    Utopia_GetPortForwardingByRuleId(ctx, &singleInfo);
+    if (removeConntrackRules(singleInfo.protocol, singleInfo.internal_port, singleInfo.dest_ip) != SUCCESS) {
+        sprintf(ulog_msg, "%s: removeConntrackRules() returned failure.", __FUNCTION__);
+        ulog(ULOG_CONFIG, UL_UTAPI, ulog_msg);
+    }
     s_unsetportfwd(ctx, index);
     for (;index<count;index++)
     {
@@ -3046,10 +3123,11 @@ static int s_getportfwdrange (UtopiaContext *ctx, int index, portFwdRange_t *por
     Utopia_GetIndexedInt(ctx, UtopiaValue_PFR_InternalPort, index, &portmap->internal_port);
     Utopia_GetIndexedInt(ctx, UtopiaValue_PFR_InternalPortRangeSize, index, &portmap->internal_port_range_size);
     //Utopia_GetIndexedInt(ctx, UtopiaValue_PFR_ToIp, index, &portmap->dest_ip);
-    Utopia_GetIndexed(ctx, UtopiaValue_PFR_ToIp, index, &portmap->dest_ip, IPADDR_SZ);
+    Utopia_GetIndexed(ctx, UtopiaValue_PFR_ToIp, index, &portmap->dest_ip, DEST_NAME_SZ);
     Utopia_GetIndexed(ctx, UtopiaValue_PFR_ToIpV6, index, &portmap->dest_ipv6, IPADDR_SZ);
     Utopia_GetIndexed(ctx, UtopiaValue_PFR_PublicIp, index, &portmap->public_ip, IPADDR_SZ);
     Utopia_GetIndexed(ctx, UtopiaValue_PFR_Protocol, index, s_tokenbuf, sizeof(s_tokenbuf));
+    Utopia_GetIndexed(ctx, UtopiaValue_PFR_RemoteHost, index, &portmap->remotehost, IPADDR_SZ);
     portmap->protocol = s_StrToEnum(g_ProtocolMap, s_tokenbuf);
 
     *port_range = '\0';
@@ -3090,6 +3168,7 @@ static int s_setportfwdrange (UtopiaContext *ctx, int index, portFwdRange_t *por
     UTOPIA_SETINDEXED(ctx, UtopiaValue_PFR_Protocol, index, p);
     snprintf(port_range, sizeof(port_range), "%d %d", portmap->start_port, portmap->end_port);
     UTOPIA_SETINDEXED(ctx, UtopiaValue_PFR_ExternalPortRange, index, port_range);
+    UTOPIA_SETINDEXED(ctx, UtopiaValue_PFR_RemoteHost, index,portmap->remotehost);
     
     return SUCCESS;
 }
@@ -3106,6 +3185,7 @@ static int s_unsetportfwdrange (UtopiaContext *ctx, int index)
     UTOPIA_UNSETINDEXED(ctx, UtopiaValue_PFR_ToIpV6, index);
     UTOPIA_UNSETINDEXED(ctx, UtopiaValue_PFR_Protocol, index);
     UTOPIA_UNSETINDEXED(ctx, UtopiaValue_PFR_ExternalPortRange, index);
+    UTOPIA_UNSETINDEXED(ctx, UtopiaValue_PFR_RemoteHost, index);
     
     return SUCCESS;
 }
@@ -3124,14 +3204,14 @@ int Utopia_SetPortForwardingRange (UtopiaContext *ctx, int count, portFwdRange_t
         {
             return ERR_INVALID_VALUE;
         }
-        if(!IsValid_IPAddr(fwdinfo[i].dest_ip))
+        /*if(!IsValid_IPAddr(fwdinfo[i].dest_ip))
         {
             return ERR_INVALID_IP;       
         }
         if(fwdinfo[i].public_ip[0] != 0 && !IsValid_IPAddr(fwdinfo[i].public_ip))
         {
             return ERR_INVALID_IP;       
-        }
+        }*/
     }
 
     Utopia_GetInt(ctx, UtopiaValue_Firewall_PFRCount, &old_count);
@@ -3202,14 +3282,14 @@ int Utopia_AddPortForwardingRange (UtopiaContext *ctx, portFwdRange_t *portmap)
         s_setportfwdrange_ruleid(ctx, count+1, count+1);
         s_setportfwdrange(ctx, count+1, portmap);
     }
-    else if(!IsValid_IPAddr(portmap->dest_ip))
+    /*else if(!IsValid_IPAddr(portmap->dest_ip))
     {
         return ERR_INVALID_IP;       
     }
     else if(portmap->public_ip[0] != 0 && !IsValid_IPAddr(portmap->dest_ip))
     {
         return ERR_INVALID_IP;       
-    }
+    }*/
     else
     {
         int i, j;
@@ -3331,7 +3411,7 @@ int Utopia_SetPortForwardingRangeByRuleId (UtopiaContext *ctx, portFwdRange_t *f
 int Utopia_DelPortForwardingRangeByRuleId (UtopiaContext *ctx, int rule_id)
 {
     int index, count = 0;
-
+    portFwdRange_t  rangeInfo = {0};
     if (rule_id < 0)
     {
         return ERR_ITEM_NOT_FOUND;
@@ -3344,6 +3424,12 @@ int Utopia_DelPortForwardingRangeByRuleId (UtopiaContext *ctx, int rule_id)
     }
 
     // found
+    rangeInfo.rule_id = rule_id;
+    Utopia_GetPortForwardingRangeByRuleId(ctx, &rangeInfo);
+    if (removeConntrackRules(rangeInfo.protocol, rangeInfo.internal_port, rangeInfo.dest_ip) != SUCCESS) {
+        sprintf(ulog_msg, "%s: removeConntrackRules() returned failure.", __FUNCTION__);
+        ulog(ULOG_CONFIG, UL_UTAPI, ulog_msg);
+    }
     s_unsetportfwdrange(ctx, index);
     for (;index<count;index++)
     {
@@ -3860,7 +3946,13 @@ int Utopia_SetDMZSettings (UtopiaContext *ctx, dmz_t dmz)
     if (NULL == ctx) {
         return ERR_INVALID_ARGS;
     }
-
+    dmz_t tmpDmz = {0};
+    if (Utopia_GetDMZSettings(ctx, &tmpDmz) == SUCCESS) {
+        if (removeConntrackRules(-1, 0, tmpDmz.dest_ip) != SUCCESS) {
+            sprintf(ulog_msg, "%s: removeConntrackRules() returned failure.", __FUNCTION__);
+            ulog(ULOG_CONFIG, UL_UTAPI, ulog_msg);
+        }
+    }
     UTOPIA_SETBOOL(ctx, UtopiaValue_DMZ_Enabled, dmz.enabled);
     if (TRUE == dmz.enabled) {
         if (IsValid_IPAddr(dmz.source_ip_start) && 
@@ -7557,7 +7649,7 @@ int Utopia_IPRule_ephemeral_port_forwarding( portMapDyn_t *pmap, boolean_t isCal
   return SUCCESS;
 }
 
-#if defined(DDNS_BROADBANDFORUM)
+#if defined(DDNS_BROADBANDFORUM) || defined(_WAN_MANAGER_ENABLED_)
 
 int Utopia_GetDynamicDnsClientInsNumByIndex(UtopiaContext *ctx, unsigned long uIndex, int *ins)
 {

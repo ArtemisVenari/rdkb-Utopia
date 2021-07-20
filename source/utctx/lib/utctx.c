@@ -373,6 +373,7 @@ static struct
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "block_httpv6",                     UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_BlockHttpV6 */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "block_p2p",                      UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_BlockP2p */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "block_p2pv6",                      UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_BlockP2pV6 */
+    { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "block_rfc1918", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_BlockRFC1918 */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "firewall_level", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_Level */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "firewall_levelv6", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_LevelV6 */
     { Utopia_Type_Config, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_For__NONE__, 1, "firewall_true_static_ip_enable", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_Firewall_TrueStaticIpEnable */
@@ -434,6 +435,7 @@ static struct
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "internal_port",                    UtopiaValue_SinglePortForward },    /* UtopiaValue_SPF_InternalPort */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "to_ip",                            UtopiaValue_SinglePortForward },    /* UtopiaValue_SPF_ToIp */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "to_ipv6",                          UtopiaValue_SinglePortForward },    /* UtopiaValue_SPF_ToIpV6 */
+    { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "remote_host",                            UtopiaValue_SinglePortForward },    /* UtopiaValue_SPF_RemoteHost */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_Key, 1, "PortRangeForward_%d",              UtopiaValue__UNKNOWN__ },           /* UtopiaValue_PortRangeForward */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "enabled",                          UtopiaValue_PortRangeForward },     /* UtopiaValue_PFR_Enabled */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "name",                             UtopiaValue_PortRangeForward },     /* UtopiaValue_PFR_Name */
@@ -444,6 +446,7 @@ static struct
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "to_ip",                            UtopiaValue_PortRangeForward },     /* UtopiaValue_PFR_ToIp */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "public_ip",                        UtopiaValue_PortRangeForward },     /* UtopiaValue_PFR_PublicIp */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "to_ipv6",                          UtopiaValue_PortRangeForward },     /* UtopiaValue_PFR_ToIpV6 */
+    { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "remote_host",                            UtopiaValue_PortRangeForward },     /* UtopiaValue_PFR_RemoteHost */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_Key, 1, "QoSPolicy_%d",                     UtopiaValue__UNKNOWN__ },           /* UtopiaValue_QoSPolicy */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_Key, 1, "QoSDefinedPolicy_%d",              UtopiaValue__UNKNOWN__ },           /* UtopiaValue_QoSDefinedPolicy */
     { Utopia_Type_IndexedConfig, Utopia_Event_Firewall_Restart,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "name",                             UtopiaValue_QoSDefinedPolicy },     /* UtopiaValue_QDP_Name */
@@ -737,7 +740,7 @@ static struct
     { Utopia_Type_IndexedConfig, Utopia_Event__NONE__,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "end_time",                  UtopiaValue_ParentalControl_ManagedDevice }, /* UtopiaValue_ParentalControl_ManagedDevice_EndTime */
     { Utopia_Type_IndexedConfig, Utopia_Event__NONE__,   Utopia_Static__NONE__, Utopia_Index_For_NS,  1, "days",                      UtopiaValue_ParentalControl_ManagedDevice }, /* UtopiaValue_ParentalControl_ManagedDevice_Days */
     /* End of parental control */
-#if defined(DDNS_BROADBANDFORUM)
+#if defined(DDNS_BROADBANDFORUM) || defined(_DT_WAN_Manager_Enable_)
 
 { Utopia_Type_Config,        Utopia_Event__NONE__,   Utopia_Static__NONE__, Utopia_For__NONE__,   1, "DynamicDnsClientCount", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_DynamicDnsClientCount */
     { Utopia_Type_IndexedConfig, Utopia_Event__NONE__,   Utopia_Static__NONE__, Utopia_Index_For_Key, 1, "DynamicDnsClient_%d", UtopiaValue__UNKNOWN__ }, /* UtopiaValue_DynamicDnsClient */

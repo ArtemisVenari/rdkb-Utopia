@@ -49,7 +49,7 @@
 #include <arpa/inet.h>
 #include <syscfg/syscfg.h>
 #include "sysevent/sysevent.h"
-#if defined (_XB6_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_) || defined(_SR300_PRODUCT_REQ_)
+#if defined (_XB6_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_) || defined(_SR300_PRODUCT_REQ_) || defined(_DT_WAN_Manager_Enable_)
 #include "platform_hal.h"
 #endif
 #include "cJSON.h"
@@ -101,6 +101,12 @@ token_t global_id;
 
 /* Function Prototypes */
 int IsValuePresentinSyscfgDB( char *param );
+
+/* Function - dbus initialization  */
+extern int dbusInit(void);
+
+/* Function - PSM SET API*/
+extern int set_psm_record(char *name,char *str);
 
 /*
  * Procedure     : trim
@@ -579,6 +585,13 @@ int IsValuePresentinSyscfgDB( char *param )
 
 	return 1;
 }
+int set_psm_partner_values(char *pValue,char *param)
+{
+       // PSM SET API calls
+       set_psm_record(param,pValue);
+       return 0;
+}
+
 
 int set_syscfg_partner_values(char *pValue,char *param)
 {
@@ -638,7 +651,20 @@ static int getFactoryPartnerId
 		char*                       pValue
 	)
 {
-#if defined (_XB6_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_) || defined(_SR300_PRODUCT_REQ_)
+#if defined (_XB6_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_) || defined(_SR300_PRODUCT_REQ_) || defined(_DT_WAN_Manager_Enable_)
+    FILE *fp = NULL;
+
+    if(pValue == NULL)
+        return -1;
+
+    fp = fopen("/nvram/PartnerID","r");
+    if(fp != NULL){
+        fscanf(fp, "%s", pValue);
+        fclose(fp);
+        return 0;
+    }
+    else
+    {
 	if(0 == platform_hal_getFactoryPartnerId(pValue))
 	{
 		APPLY_PRINT("%s - %s\n",__FUNCTION__,pValue);
@@ -662,7 +688,12 @@ static int getFactoryPartnerId
 		APPLY_PRINT("%s - Failed Get factoryPartnerId \n", __FUNCTION__);
 	}
 #endif
-	return -1;
+	    }
+
+    if(!strcmp(pValue,""))
+         strncpy(pValue,"telekom-dev",20);
+
+    return 0;
 }
 
 int validatePartnerId ( char *PartnerID )
@@ -1394,9 +1425,22 @@ int compare_partner_json_param(char *partner_nvram_bs_obj,char *partner_etc_obj,
             cJSON_AddStringToObject(newParamObj, "UpdateTime", "-");
             cJSON_AddStringToObject(newParamObj, "UpdateSource", "-");
             cJSON_AddItemToObject(subitem_nvram_bs, key, newParamObj);
-
+#if defined(_DT_WAN_Manager_Enable_)
+            if (0 != strstr (key, "dmsb."))
+            {
+                //Its PSM entry
+                APPLY_PRINT("add psm value %s for param %s\n", value, key);
+                set_psm_partner_values(value, key);
+            }
+            else
+            {
+                //Its SYSCFG entry
+                APPLY_PRINT("add syscfg value %s for param %s\n", value, key);
+                set_syscfg_partner_values( value, key );
+            }
+#else
             addInSysCfgdDB(key, value);
-
+#endif
             //Also add in the /nvram/partners_defaults.json
             addParamInPartnersFile(key, PartnerID, value);
          }
@@ -1419,6 +1463,10 @@ int compare_partner_json_param(char *partner_nvram_bs_obj,char *partner_etc_obj,
             //printf("value_bs = %s, source_bs = %s\n", value_bs, source_bs);
             if (strcmp(value, value_bs))
             {
+               // Take backup of current default value before replacing it on json file
+               char old_value_bs[256] = {0};
+               strcpy(old_value_bs, value_bs);
+
                APPLY_PRINT("** Param %s value changed in firmware **\n", key);
                cJSON_ReplaceItemInObject(bs_obj,"DefaultValue", cJSON_CreateString(value));
                cJSON_ReplaceItemInObject(bs_obj,"BuildTime", cJSON_CreateString(getBuildTime()));
@@ -1426,7 +1474,34 @@ int compare_partner_json_param(char *partner_nvram_bs_obj,char *partner_etc_obj,
                {
                   APPLY_PRINT(" ** Param was not overridden previously. Update the active value..\n");
                   cJSON_ReplaceItemInObject(bs_obj,"ActiveValue", cJSON_CreateString(value));
+
+#if defined(_DT_WAN_Manager_Enable_)
+                  if (0 != strstr ( key, "dmsb."))
+                  {
+                      //Its PSM entry
+                      APPLY_PRINT("Update psm value %s for param %s\n", value, key);
+                      set_psm_partner_values(value, key);
+                  }
+                  else
+                  {
+                      //Its SYSCFG entry
+                      char curr_syscfg_value[256] = {0};
+                      syscfg_get(NULL, key, curr_syscfg_value, sizeof(curr_syscfg_value));
+
+                      if ( 0 != strcmp(curr_syscfg_value, old_value_bs))
+                      {
+                          APPLY_PRINT("value on syscfg(%s) has been updated by user to %s for param %s.\n", curr_syscfg_value, old_value_bs, key);
+                          APPLY_PRINT("only updating the json file and not updating the syscfg.db");
+                      }
+                      else
+                      {
+                          APPLY_PRINT("updating the value for param %s to %s.\n", key, value);
+                          set_syscfg_partner_values( value, key );
+                      }
+                  }
+#else
                   updateSysCfgdDB(key, value);
+#endif
                }
             }
          }
@@ -1555,9 +1630,39 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
 				isThisComcastPartner = 1;
 			}
 				
-			partnerObj = cJSON_GetObjectItem( json, PartnerID );
-			if( partnerObj != NULL) 
+                       partnerObj = cJSON_GetObjectItem(json, PartnerID);
+                       if(partnerObj != NULL)
 			{
+                            if(0 != strstr(PartnerID, "telekom"))
+                            {
+                                cJSON *param = partnerObj->child;
+                                char *key = NULL;
+                                char *value = NULL;
+                                cJSON *paramObjVal = NULL;
+                                while( param )
+                                {
+                                    key = param->string;
+                                    cJSON * value_obj = cJSON_GetObjectItem(partnerObj, key);
+                                    paramObjVal = cJSON_GetObjectItem(value_obj, "ActiveValue");
+                                    if(paramObjVal)
+                                        value = paramObjVal->valuestring;
+
+                                    if (0 != strstr (key, "dmsb."))
+                                    {
+                                        //Its PSM entry
+                                        APPLY_PRINT("Update psm value %s for param %s\n", value, key);
+                                        set_psm_partner_values(value, key);
+                                    }
+                                    else
+                                    {
+                                        //Its SYSCFG entry
+                                        APPLY_PRINT("Update SYSCFG value %s for param %s\n", value, key);
+                                        set_syscfg_partner_values(value, key);
+                                    }
+                                    param = param->next;
+                                }
+                            }
+
 				// Don't overwrite this value into syscfg.db for comcast partner
 				if( ( 0 == isThisComcastPartner ) && \
 					( 1 == isNeedToApplyPartnersDefault )
@@ -2215,6 +2320,9 @@ int main( int argc, char **argv )
 	
    }
 
+
+   dbusInit();
+
    set_defaults();
    
    if (syscfg_dirty) 
@@ -2278,7 +2386,10 @@ int main( int argc, char **argv )
 #if defined (_RDK_REF_PLATFORM_)
                 sprintf( PartnerID, "%s", "RDKM");
 #else
-		sprintf( PartnerID, "%s", "comcast" );
+                //PartnerID is NULL so setting partnerID again as a recovery mechanism.
+                get_PartnerID ( PartnerID );
+                APPLY_PRINT("%s - PartnerID is NULL so setting partnerID as :%s\n", __FUNCTION__, PartnerID );
+                v_secure_system("touch /nvram/.apply_partner_defaults");
 #endif
 		set_syscfg_partner_values( PartnerID, "PartnerID" );
 		APPLY_PRINT("%s - PartnerID is NULL so set default partner :%s\n", __FUNCTION__, PartnerID );		

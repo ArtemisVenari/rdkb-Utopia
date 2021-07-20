@@ -1041,7 +1041,7 @@ static int wan_iface_up(struct serv_wan *sw)
             sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/disable_ipv6", sw->ifname, "1");
             sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/accept_ra", sw->ifname, "2");
             sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/accept_ra_defrtr", sw->ifname, "1");
-            sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/accept_ra_pinfo", sw->ifname, "0");
+            sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/accept_ra_pinfo", sw->ifname, "1");
 #if !defined(INTEL_PUMA7) /* On Puma 7 autoconf enables SLAAC not link-local address */
             sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/autoconf", sw->ifname, "1");
 #endif
@@ -1057,8 +1057,9 @@ static int wan_iface_up(struct serv_wan *sw)
         sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/forwarding", "mta0", "0");
         break;
     default:
-        sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/disable_ipv6", sw->ifname, "1");
-        sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/autoconf", sw->ifname, "0");
+        sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/accept_ra", sw->ifname, "2");
+        sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/disable_ipv6", sw->ifname, "0");
+        sysctl_iface_set("/proc/sys/net/ipv6/conf/%s/autoconf", sw->ifname, "1");
         break;
     }
 #endif
@@ -1198,6 +1199,20 @@ static int wan_addr_set(struct serv_wan *sw)
     if (strlen(val)){
         printf("Setting current_wan_ipaddr  %s\n",val);     
         sysevent_set(sw->sefd, sw->setok, "current_wan_ipaddr", val, 0);
+        // Shared Address Space address range 100.64.0.0/10 as per IANA for Carrier Grade NAT
+        unsigned long cgnat_addr = 0xffffffff, cgnat_mask = 0xffffffff;
+        inet_pton(AF_INET, "100.64.0.0", &cgnat_addr);
+        inet_pton(AF_INET, "255.192.0.0", &cgnat_mask);
+        unsigned long wan_address = 0xffffffff;
+        inet_pton(AF_INET, val, &wan_address);
+        if((wan_address & cgnat_mask) == (cgnat_addr & cgnat_mask)) {
+            if( syscfg_set(NULL, "UseSharedCGNAddress", "true") != 0 && syscfg_commit() != 0)
+                fprintf(stderr, "syscfg_set failed for parameter UseSharedCGNAddress \n");
+        }
+        else {
+            if( syscfg_set(NULL, "UseSharedCGNAddress", "false") != 0 && syscfg_commit() != 0)
+                fprintf(stderr, "syscfg_set failed for parameter UseSharedCGNAddress \n");
+        }
     }
     else
     {
