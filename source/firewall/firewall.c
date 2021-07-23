@@ -4798,6 +4798,10 @@ static int do_dmz(FILE *nat_fp, FILE *filter_fp)
             snprintf(str, sizeof(str),
                "-A prerouting_fromwan_todmz --dst %s -p udp -m multiport ! --dports %s,%s,%s -j DNAT %s", natip4, Httpport, Httpsport, bWAN_SSHPort, dst_str);
             fprintf(nat_fp, "%s\n", str);
+
+            snprintf(str, sizeof(str),
+               "-A prerouting_fromwan_todmz --dst %s -p icmp  -j DNAT %s", natip4, dst_str);
+            fprintf(nat_fp, "%s\n", str);
          }
 
 #ifdef _HUB4_PRODUCT_REQ_
