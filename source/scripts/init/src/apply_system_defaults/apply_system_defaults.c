@@ -1660,6 +1660,18 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                                             APPLY_PRINT("Error in decryption of wan_proto_password");
                                         strncpy(value, buf, sizeof(buf));
                                     }
+                                    else if (!strcmp(key, "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password"))
+                                    {
+                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf)))
+                                            APPLY_PRINT("Error in decryption of dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password");
+                                        strncpy(value, buf, sizeof(buf));
+                                    }
+                                    else if (!strcmp(key, "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword"))
+                                    {
+                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf)))
+                                            APPLY_PRINT("Error in decryption of dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword");
+                                        strncpy(value, buf, sizeof(buf));
+                                    }
 
                                     if (0 != strstr (key, "dmsb."))
                                     {
