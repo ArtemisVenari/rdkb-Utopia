@@ -1638,6 +1638,7 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                                 cJSON *param = partnerObj->child;
                                 char *key = NULL;
                                 char *value = NULL;
+                                unsigned char buf[128] = {0};
                                 cJSON *paramObjVal = NULL;
                                 while( param )
                                 {
@@ -1646,6 +1647,19 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                                     paramObjVal = cJSON_GetObjectItem(value_obj, "ActiveValue");
                                     if(paramObjVal)
                                         value = paramObjVal->valuestring;
+
+                                    if (!strcmp(key, "wan_proto_username"))
+                                    {
+                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf)))
+                                            APPLY_PRINT("Error in decryption of wan_proto_username");
+                                        strncpy(value, buf, sizeof(buf));
+                                    }
+                                    else if (!strcmp(key, "wan_proto_password"))
+                                    {
+                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf)))
+                                            APPLY_PRINT("Error in decryption of wan_proto_password");
+                                        strncpy(value, buf, sizeof(buf));
+                                    }
 
                                     if (0 != strstr (key, "dmsb."))
                                     {
