@@ -11603,6 +11603,7 @@ static int prepare_xconf_rules(FILE *mangle_fp) {
 //#if ! defined (INTEL_PUMA7) && ! defined (_COSA_BCM_ARM_)
    fprintf(mangle_fp, "-A FORWARD -m state ! --state NEW -j DSCP  --set-dscp 0x0\n");
 //#endif
+   fprintf(mangle_fp, "-A FORWARD -i brlan1 -o erouter0 -j DSCP --set-dscp 0x0\n");
    /**
     * RDKB-15072 - Explicitly specify proticol instead of common rule as workaround to overcome CMTS issue.
     **/
