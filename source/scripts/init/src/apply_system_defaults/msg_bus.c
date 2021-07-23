@@ -1,7 +1,9 @@
  /*
 ===================================================================
-   This programs handles dbus initialization & PSM set record API
+   This programs handles dbus initialization , PSM set record API &
+   SetDataModelParam
 
+Date : 02-07-2021
 
 ===================================================================
 */
@@ -10,6 +12,7 @@
 #include "ccsp_psm_helper.h"
 #include <ccsp_base_api.h>
 #include "ccsp_memory.h"
+#include "utils.h"
 
 #define CCSP_SUBSYS "eRT."
 
@@ -76,3 +79,45 @@ int set_psm_record(char *name,char *str)
 
 }
 
+/*
+ * Procedure     : SetDataModelParam
+ * Purpose       : To set datamodel with a value
+ * Parameters    :
+ *    pComponent : name of the component
+ *    pBus       : Dbus path
+ *    pParamName : Datamodel name
+ *    pParamVal  : Datamodel value
+ *    dataType_e : Datamodel datatype
+ * Return Value  :
+ */
+
+int SetDataModelParam(const char *pComponent, const char *pBus, const char *pParamName, const char *pParamVal, enum dataType_e type, unsigned int bCommitFlag)
+{
+    CCSP_MESSAGE_BUS_INFO *bus_info = (CCSP_MESSAGE_BUS_INFO *)g_vBus_handle;
+    parameterValStruct_t param_val[1] = {0};
+    char *faultParam = NULL;
+    int ret = 0;
+
+    param_val[0].parameterName = pParamName;
+    param_val[0].parameterValue = pParamVal;
+    param_val[0].type = type;
+
+    ret = CcspBaseIf_setParameterValues(
+        g_vBus_handle,
+        pComponent,
+        pBus,
+        0,
+        0,
+        param_val,
+        1,
+        TRUE,
+        &faultParam);
+
+    if ((ret != CCSP_SUCCESS) && (faultParam != NULL)){
+        printf("%s-%d Failed to set %s\n", __FUNCTION__, __LINE__, pParamName);
+        bus_info->freefunc(faultParam);
+        return -1;
+    }
+
+    return 0;
+}

@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##########################################################################
-bin_PROGRAMS = apply_system_defaults
+bin_PROGRAMS = apply_system_defaults country_code_setting
 DEPENDS = "hal-platform"
 AM_CFLAGS = -I$(top_srcdir)/source -I$(top_srcdir)/source/include -I$(top_srcdir)/source/util -I$(top_srcdir)/../hal/include  -I${PKG_CONFIG_SYSROOT_DIR}$(includedir)/dbus-1.0 -I${PKG_CONFIG_SYSROOT_DIR}$(libdir)/dbus-1.0/include
 AM_CFLAGS +=  $(CPPFLAGS) $(DBUS_CFLAGS)
@@ -35,4 +35,7 @@ endif
 
 AM_LDFLAGS += "-lhal_platform"
 
-apply_system_defaults_SOURCES = msg_bus.c apply_system_defaults.c
+country_code_setting_LDFLAGS = $(AM_LDFLAGS) "-lhal_wifi"
+
+apply_system_defaults_SOURCES = msg_bus.c utils.c apply_system_defaults.c
+country_code_setting_SOURCES = msg_bus.c utils.c country_code_setting.c

@@ -41,8 +41,7 @@
     default value
 ===================================================================
 */
-#include <stdio.h>
-#include <string.h>
+#include "utils.h"
 #include <stdlib.h>
 #include <getopt.h>
 #include <ctype.h>
@@ -52,11 +51,9 @@
 #if defined (_XB6_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_) || defined(_SR300_PRODUCT_REQ_) || defined(_DT_WAN_Manager_Enable_)
 #include "platform_hal.h"
 #endif
-#include "cJSON.h"
 #include <unistd.h>
 #include <stdbool.h>
 #define PARTNERS_INFO_FILE  							"/nvram/partners_defaults.json"
-#define PARTNERS_INFO_FILE_ETC                                                 "/etc/partners_defaults.json"
 #define BOOTSTRAP_INFO_FILE                                                    "/nvram/bootstrap.json"
 #define VERSION_TXT_FILE							"/version.txt"
 #define PARTNERID_FILE  								"/nvram/.partner_ID"
@@ -64,7 +61,6 @@
 #define PARTNER_DEFAULT_MIGRATE_PSM  					"/tmp/.apply_partner_defaults_psm"
 #define PARTNER_DEFAULT_MIGRATE_FOR_NEW_PSM_MEMBER  	"/tmp/.apply_partner_defaults_new_psm_member"
 
-#define PARTNER_ID_LEN 64
 static char default_file[1024];
 
 // The sysevent server is local 
@@ -82,22 +78,6 @@ static int convert = 0;
 
 // we can use one global id for sysevent because we are single threaded
 token_t global_id;
-
-#if defined (_CBR_PRODUCT_REQ_) || defined (_XB6_PRODUCT_REQ_)
-        #define LOG_FILE "/rdklogs/logs/Consolelog.txt.0"
-#else
-	#define LOG_FILE "/rdklogs/logs/ArmConsolelog.txt.0"
-#endif
-
-#define RETRY_COUNT 60
-#define APPLY_PRINT(fmt ...)   {\
-   FILE *logfp = fopen ( LOG_FILE , "a+");\
-   if (logfp)\
-   {\
-        fprintf(logfp,fmt);\
-        fclose(logfp);\
-   }\
-}\
 
 /* Function Prototypes */
 int IsValuePresentinSyscfgDB( char *param );
@@ -509,51 +489,6 @@ static int parse_command_line(int argc, char **argv)
    return(0);
 }
 
-char * json_file_parse( char *path )
-{
-	cJSON 		*json 		= NULL;
-	FILE	 	*fileRead 	= NULL;
-	char		*data 		= NULL;
-	int 		 len 		= 0;
-
-	//File read
-	fileRead = fopen( path, "r" );
-  
-	//Null Check
-	if( fileRead == NULL ) 
-	{
-	 	APPLY_PRINT( "%s-%d : Error in opening %s JSON file\n" , __FUNCTION__, __LINE__,path );
-		return NULL;
-	}
-
-	//Calculate length for memory allocation 
-	fseek( fileRead, 0, SEEK_END );
-	len = ftell( fileRead );
-	fseek( fileRead, 0, SEEK_SET );
-
-	APPLY_PRINT("%s-%d : Total File Length :%d \n", __FUNCTION__, __LINE__, len );
-
-	if( len > 0 )
- 	{
-		 data = ( char* )malloc( sizeof(char) * (len + 1) );
-		 //Check memory availability
-		 if ( data != NULL ) 
-		 {
-			memset( data, 0, ( sizeof(char) * (len + 1) ));
-			fread( data, 1, len, fileRead );
-		 } 
-		 else 
-		 {
-			 APPLY_PRINT("%s-%d : Memory allocation failed Length :%d\n", __FUNCTION__, __LINE__, len );
-		 }
- 	}
-	 
-	if( fileRead )
-	fclose( fileRead );
-	
-	return data;
-}
-
 static int writeToJson(char *data, char *file)
 {
     FILE 	*fp;
@@ -644,56 +579,6 @@ int GetDevicePropertiesEntry( char *pOutput, int size, char *sDevicePropContent 
 
     fclose( fp1 );
     return ret;
-}
-
-static int getFactoryPartnerId
-	(
-		char*                       pValue
-	)
-{
-#if defined (_XB6_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_) || defined(_SR300_PRODUCT_REQ_) || defined(_DT_WAN_Manager_Enable_)
-    FILE *fp = NULL;
-
-    if(pValue == NULL)
-        return -1;
-
-    fp = fopen("/nvram/PartnerID","r");
-    if(fp != NULL){
-        fscanf(fp, "%s", pValue);
-        fclose(fp);
-        return 0;
-    }
-    else
-    {
-	if(0 == platform_hal_getFactoryPartnerId(pValue))
-	{
-		APPLY_PRINT("%s - %s\n",__FUNCTION__,pValue);
-		return 0;		 
-	}
-	else
-	{
-		int count = 0 ;
-		while ( count < 3 )
-		{
-			APPLY_PRINT(" Retrying for getting partnerID from HAL, Retry Count:%d\n", count + 1);
-			if(0 == platform_hal_getFactoryPartnerId(pValue))
-			{
-				APPLY_PRINT("%s - %s\n",__FUNCTION__,pValue);
-				return 0;
-			}
-			sleep(3);
-			count++;
-		}
-		//TCCBR-4426 getFactoryPartnerId is implemented for XB6/HUB4 Products as of now
-		APPLY_PRINT("%s - Failed Get factoryPartnerId \n", __FUNCTION__);
-	}
-#endif
-	    }
-
-    if(!strcmp(pValue,""))
-         strncpy(pValue,"telekom-dev",20);
-
-    return 0;
 }
 
 int validatePartnerId ( char *PartnerID )
