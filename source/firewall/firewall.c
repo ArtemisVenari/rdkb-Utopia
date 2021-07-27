@@ -4798,6 +4798,10 @@ static int do_dmz(FILE *nat_fp, FILE *filter_fp)
             snprintf(str, sizeof(str),
                "-A prerouting_fromwan_todmz --dst %s -p udp -m multiport ! --dports %s,%s,%s -j DNAT %s", natip4, Httpport, Httpsport, bWAN_SSHPort, dst_str);
             fprintf(nat_fp, "%s\n", str);
+
+            snprintf(str, sizeof(str),
+               "-A prerouting_fromwan_todmz --dst %s -p icmp  -j DNAT %s", natip4, dst_str);
+            fprintf(nat_fp, "%s\n", str);
          }
 
 #ifdef _HUB4_PRODUCT_REQ_
@@ -11603,6 +11607,7 @@ static int prepare_xconf_rules(FILE *mangle_fp) {
 //#if ! defined (INTEL_PUMA7) && ! defined (_COSA_BCM_ARM_)
    fprintf(mangle_fp, "-A FORWARD -m state ! --state NEW -j DSCP  --set-dscp 0x0\n");
 //#endif
+   fprintf(mangle_fp, "-A FORWARD -i brlan1 -o erouter0 -j DSCP --set-dscp 0x0\n");
    /**
     * RDKB-15072 - Explicitly specify proticol instead of common rule as workaround to overcome CMTS issue.
     **/
@@ -14851,6 +14856,13 @@ v6GPFirewallRuleNext:
     fprintf(fp, "-I lan2wan -j lan2wan_misc_ipv6\n");
 #endif
 
+    {
+        /* Do not forward packets from deprecated prefix to WAN */
+        char prev_prefix[MAX_QUERY] = {0};
+        sysevent_get(sysevent_fd, sysevent_token, "previous_ipv6_prefix", prev_prefix, sizeof(prev_prefix));
+        if (prev_prefix[0] != '\0')
+            fprintf(fp, "-I lan2wan -i brlan0 -s %s -j REJECT --reject-with icmp6-addr-unreachable\n", prev_prefix);
+    }
 
 end_of_ipv6_firewall:
 

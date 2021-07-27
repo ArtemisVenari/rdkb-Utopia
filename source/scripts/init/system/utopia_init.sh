@@ -865,17 +865,13 @@ fi
 
 syscfg commit
 
-mount-copybind /tmp/ca-certificates.conf /etc/ca-certificates.conf
 source /lib/rdk/getpartnerid.sh
 partnerId=$(getPartnerId)
 if [ "$partnerId" = "telekom-hu" ]; then
-       echo "ca-certs-hu.pem" > /etc/ca-certificates.conf
        cp /usr/share/ca-certificates/ca-crl-hu.pem /etc/ssl/certs/ca_crl.crt
 else
-       echo "ca-certs-dev.pem" > /etc/ca-certificates.conf
        cp /usr/share/ca-certificates/ca-crl-dev.pem /etc/ssl/certs/ca_crl.crt
 fi
-update-ca-certificates
 
 #ifdef CISCO_XB3_PLATFORM_CHANGES
 ## Remove after setting last reboot reason
