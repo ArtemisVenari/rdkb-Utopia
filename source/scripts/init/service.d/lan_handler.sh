@@ -291,7 +291,7 @@ case "$1" in
         # --------------------------------------------------------------------
 
         PHY_BRIDGE_IFNAME=`syscfg get lan_ifname`
-        WAN_PHY_ETH_NAME=`syscfg get wan_physical_ifname`
+        WAN_PHY_ETH_NAME=`syscfg get wan_eth_physical_ifname`
         PHY_ETH_IFNAMES=`syscfg get lan_ethernet_physical_ifnames`
         IFS=' ' read -r -a PHY_ETH_IFNAME_ARRAY <<< "$PHY_ETH_IFNAMES"
         for PHY_ETH_IFNAME in "${PHY_ETH_IFNAME_ARRAY[@]}"
