@@ -47,6 +47,10 @@ int main()
          return -1;
     }
     cJSON *CountrycodeObj = cJSON_GetObjectItem(partnerObj, "country_code");
+    if ( NULL == CountrycodeObj){
+          APPLY_PRINT("%s - CountrycodeObj is null\n",__FUNCTION__);
+          return -1;
+    }
     strcpy(country_code_ret, CountrycodeObj->valuestring);
 
     /* Setting RegulatoryDomain,ApplySettingSSID & ApplySetting DM */
