@@ -210,7 +210,9 @@ prepare_pppd_ip_down_script() {
 
    echo "sysevent set ppp_status down" >> $IP_DOWN_FILENAME
    echo "ulog ip-down event \"sysevent set ppp_status down\"" >> $IP_DOWN_FILENAME
-   echo "sed -i '/non_internet\|:/!d' $RESOLV_CONF" >> $IP_DOWN_FILENAME
+   echo "cat $RESOLV_CONF > $RESOLV_CONF_TMP" >> $IP_DOWN_FILENAME
+   echo "cat $RESOLV_CONF_TMP | grep non > $RESOLV_CONF" >> $IP_DOWN_FILENAME
+   echo "rm -rf $RESOLV_CONF_TMP" >> $IP_DOWN_FILENAME
    echo "echo \"[utopia][pppd ip-down] <\`date\`>\" > /dev/console" >> $IP_DOWN_FILENAME
 
    echo "sysevent set wan-status stopped" >> $IP_DOWN_FILENAME
