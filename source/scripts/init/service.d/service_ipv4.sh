@@ -690,6 +690,18 @@ case "$1" in
    ${SERVICE_NAME}-up)
         #INST=${1%-*}
         #INST=${INST#*_}
+        if [ 5 = $2 ]; then
+            #if auto_LLA_is_disabled is set to 1 then Eui-64 LLA is disabled
+            #if auto_LLA_is_disabled is set to 0 then Eui-64 LLA is enabled
+            autoLLAisDisabled=`syscfg get auto_LLA_is_disabled`
+            if [ "1" = "$autoLLAisDisabled" ] ; then
+                lla_eui="$(ifconfig brlan0 | grep -i "Scope:Link" | awk '/inet6/{print $3}' | cut -d '/' -f 1)"
+                ip addr del $lla_eui/64 dev brlan0
+                llaDefaultVal=`syscfg get LLA_default_value`
+                ip link set dev brlan0 addrgenmode none
+                ip -6 addr add scope link $llaDefaultVal/64 dev brlan0
+            fi
+        fi
         LOWER=`sysevent get ${SERVICE_NAME}_${2}-lower`
         if [ x = x$LOWER ]; then
             resync_instance $2
