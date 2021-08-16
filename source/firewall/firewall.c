@@ -14203,6 +14203,16 @@ static void do_ipv6_filter_table(FILE *fp){
                  fprintf(fp, "-A INPUT -i brlan0 -d %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m state --state NEW,INVALID,RELATED -j DROP\n", wanIPv6); // Echo reply
              }
       }
+#else
+      if(isPingBlockedV6 == 1)
+      {
+             int i=0;
+             for(i = 0; i < ecm_wan_ipv6_num; i++)
+             {
+                  fprintf(fp, "-A INPUT -i brlan0 -d %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j DROP\n", ecm_wan_ipv6[i]); // Echo request
+                  fprintf(fp, "-A INPUT -i brlan0 -d %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m state --state NEW,INVALID,RELATED -j DROP\n", ecm_wan_ipv6[i]); // Echo reply
+             }
+      }
 #endif
      
       // Should include --limit 10/second for most of ICMP
