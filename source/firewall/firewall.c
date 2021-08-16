@@ -2660,6 +2660,18 @@ static int prepare_globals_from_configuration(void)
    return(0);
 }
 
+/* Convert subnet mask string to CIDR suffix value */
+static int netmask_to_cidr_suffix (char* netmask) {
+  uint32_t nmask;
+  int cidr_suffix=0;
+  inet_pton(AF_INET, netmask, &nmask);
+  while (nmask) {
+      cidr_suffix += (nmask & 0x1);
+      nmask >>= 1;
+  }
+  return cidr_suffix;
+}
+
 /*
  ****************************************************************
  *               IPv4 Firewall                                  *
@@ -5459,6 +5471,9 @@ static int do_wan_nat_lan_clients(FILE *fp)
                "-A postrouting_towan -s 172.16.0.0/12  -j SNAT --to-source %s", natip4);
 
      }
+     snprintf(str, sizeof(str),
+           "-A postrouting_towan -s 10.0.0.0/%d  -j SNAT --to-source %s", netmask_to_cidr_suffix(lan_netmask), natip4);
+     fprintf(fp, "%s\n", str);
   }
   else
   {
