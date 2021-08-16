@@ -7218,11 +7218,12 @@ static char *trim(char *in)
    return(start);
 }
 
-#define DNS_RESOLV_FILE "/etc/resolv.conf"
+#define DNS_RESOLV_FILE "/etc/resolv.dnsmasq"
 static int resolve_dns_server(char* line, char* dns_server){
     char *p;
     char *q;
-      
+    char *r;
+  
     if(line == NULL || dns_server == NULL)
         return -1;
     /* remove the '\n' at the end of line */
@@ -7235,7 +7236,8 @@ static int resolve_dns_server(char* line, char* dns_server){
         }
         //Needs to remove leading and traling spce from string
         q=trim(p);
-    	memcpy(dns_server, q, strlen(q)+1);
+        r = strtok(q, " ");
+        memcpy(dns_server, r, strlen(r)+1);
         return 0;
     }
 
