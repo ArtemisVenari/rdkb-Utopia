@@ -949,3 +949,6 @@ if [ -f /usr/bin/inotify-minidump-watcher ];then
        mkdir -p /minidumps
       /usr/bin/inotify-minidump-watcher /minidumps /lib/rdk/uploadDumps.sh  "\"\" 0" "*.dmp" &
 fi
+
+#####guest_ebtable.sh is called ##############
+/etc/utopia/service.d/guest_ebtable.sh
