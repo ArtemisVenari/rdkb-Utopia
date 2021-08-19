@@ -11618,16 +11618,10 @@ static int prepare_xconf_rules(FILE *mangle_fp) {
 #if defined(_COSA_BCM_MIPS_)
    fprintf(mangle_fp, "-A FORWARD -m physdev --physdev-in emta0 -j ACCEPT\n");
 #endif
-   fprintf(mangle_fp, "-A FORWARD -m state --state NEW -j DSCP --set-dscp-class %s\n",initialoutputmark);
-//#if ! defined (INTEL_PUMA7) && ! defined (_COSA_BCM_ARM_)
-   fprintf(mangle_fp, "-A FORWARD -m state ! --state NEW -j DSCP  --set-dscp 0x0\n");
-//#endif
    fprintf(mangle_fp, "-A FORWARD -i brlan1 -o erouter0 -j DSCP --set-dscp 0x0\n");
    /**
     * RDKB-15072 - Explicitly specify proticol instead of common rule as workaround to overcome CMTS issue.
     **/
-   fprintf(mangle_fp, "-A OUTPUT -o erouter0 -j DSCP --protocol udp --set-dscp-class %s\n",initialoutputmark);
-   fprintf(mangle_fp, "-A OUTPUT -o erouter0 -j DSCP --protocol tcp --set-dscp-class %s\n",initialoutputmark);
 
    fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -p gre -j DSCP --set-dscp %d \n",greDscp);
    /**
@@ -11665,21 +11659,12 @@ static int prepare_xconf_rules(FILE *mangle_fp) {
    fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class cs4 -j CONNMARK --set-mark 0x1B/0xFF\n");
    fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class af41 -j CONNMARK --set-mark 0x1C/0xFF\n");
    fprintf(mangle_fp, "-I PREROUTING -i erouter0 -m dscp --dscp-class cs3 -j CONNMARK --set-mark 0x1D/0xFF\n");
-   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0x1D/0xFF  -j DSCP --set-dscp-class cs3\n");
-   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0x1C/0xFF -j DSCP --set-dscp-class af41\n");
-   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0x1B/0xFF -j DSCP --set-dscp-class cs4\n");
-   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0x1A/0xFF -j DSCP --set-dscp-class %s\n",initialforwardedmark);
-
-   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0xA/0xFF  -j DSCP --set-dscp-class af32\n");
-   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0xB/0xFF -j DSCP --set-dscp-class cs1\n");
-   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0xC/0xFF -j DSCP --set-dscp-class cs5\n");
-   fprintf(mangle_fp, "-A POSTROUTING -o erouter0 -m connmark --mark 0xD/0xFF -j DSCP --set-dscp-class %s\n",initialoutputmark);
 
    /*XCONF RULES END*/
    return 0;
 }
 
-static int add_qos_skb_mark(FILE *mangle_fp)
+static int add_qos_skb_mark(FILE *mangle_fp, int family)
 {
    int retPsmGet = CCSP_SUCCESS;
    char *strValue = NULL;
@@ -11687,17 +11672,22 @@ static int add_qos_skb_mark(FILE *mangle_fp)
    char wanInterface[32] = {0};
    char SKBMark[32] = {0};
    char DSCPMark[16] = {0};
-   char markingList[32] ={0};
+   char markingList[75] ={0};
    const char *psmList = "dmsb.wanmanager.if.1.Marking.List";
    const char *wanIfName = "dmsb.wanmanager.if.1.Name";
    int vlanCount = 1;
    int vlanID = 0;
-   char TmpList[64] = {0};
+   char TmpList[75] = {0};
    char *token = NULL;
    char buf[32] = {0};
    char syscfgEntry[512] = {0};
    int primary_Vlan_ID = 0;
    int numVlanIfc = 0;
+
+   char PartnerID[32] = {0};
+   int dest_port = 0;
+
+   syscfg_get(NULL, "PartnerID", PartnerID, sizeof(PartnerID));
 
    syscfg_get(NULL, "Vlan_NumOfIfs", buf, sizeof(buf));
    numVlanIfc = atoi(buf);
@@ -11749,17 +11739,63 @@ static int add_qos_skb_mark(FILE *mangle_fp)
            }
 
            memset(psmEntry, 0, sizeof(psmEntry));
-           if(vlanID == primary_Vlan_ID) {
-               fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o erouter0 --set-dscp-class %s\n", DSCPMark);
-               fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o erouter0 --set-class 0:%s\n", SKBMark);
-           }
-           else {
-               fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o %s.%d --set-dscp-class %s\n", wanInterface, vlanID, DSCPMark);
-               fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o %s.%d --set-class 0:%s\n", wanInterface, vlanID, SKBMark);
-           }
+           if(strcmp(PartnerID, "telekom-dev") == 0 || strcmp(PartnerID, "telekom-hu") == 0) { // Qos Rules based on VLAN for EU
+               if(vlanID == primary_Vlan_ID) {
+                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o erouter0 --set-dscp-class %s\n", DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o erouter0 --set-class 0:%s\n", SKBMark);
+               }
+               else {
+                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o %s.%d --set-dscp-class %s\n", wanInterface, vlanID, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o %s.%d --set-class 0:%s\n", wanInterface, vlanID, SKBMark);
+               }
+               vlanCount++ ;
+            }
+           else if(strcmp(PartnerID, "telekom-de") == 0 || strcmp(PartnerID, "telekom-de-test") == 0) { // Qos Rules based on service for TDG
+               if (strcmp(token, "NTP") == 0) {
+                   dest_port = 123; // for NTP
+                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+		}
 
+               if (strcmp(token, "DNS") == 0) {
+                   dest_port = 53; // for DNS
+                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\"
+										-o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\"
+										-o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\"
+										-o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\"
+										-o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   dest_port = 0;
+		}
+
+               if ( strcmp(token,"VOIPCTRL") == 0 || strcmp(token,"IPTVCTRL") == 0 ||
+						strcmp(token,"VOIPMULT") == 0 || strcmp (token,"IPTVMULT") == 0 ) {
+                       fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -m dscp --dscp-class %s --set-class 0:%s\n", DSCPMark, SKBMark);
+               }
+
+               if (family == AF_INET6) {
+                   if (strcmp(token, "DHCPv6") == 0) {
+                       fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport 547 -m u32 --u32 \"45&0xFF=0x01:0x0B\" -o erouter0 --set-dscp-class %s\n", DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport 547 -m u32 --u32 \"45&0xFF=0x01:0x0B\" -o erouter0 --set-class 0:%s\n", SKBMark);
+                   }
+                   else if (strcmp(token, "ICMPv6") == 0) {
+                       fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type router-solicitation -o erouter0 --set-dscp-class %s\n", DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p icmpv6 --icmpv6-type router-solicitation -o erouter0 --set-class 0:%s\n", SKBMark);
+                   }
+		   else if (strcmp(token, "DNSv6") == 0) {
+                       dest_port = 53; // for DNS
+                       fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\"  -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+			}
+		  }
+	   }
            token = strtok( NULL, "-" );
-           vlanCount++ ;
        }
    }
     return 0;
@@ -11848,8 +11884,8 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    prepare_xconf_rules(mangle_fp);
    char buf[32] = {0};
    syscfg_get(NULL, "PartnerID", buf, sizeof(buf));
-   if (strcmp(buf, "telekom-dev") == 0 || strcmp(buf, "telekom-hu") == 0)
-       add_qos_skb_mark(mangle_fp);
+   if (strcmp(buf, "telekom-dev") == 0 || strcmp(buf, "telekom-hu") == 0 || strcmp(buf, "telekom-de") == 0 || strcmp(buf, "telekom-de-test") == 0)
+       add_qos_skb_mark(mangle_fp, AF_INET);
 
 #ifdef CONFIG_BUILD_TRIGGER
 #ifndef CONFIG_KERNEL_NF_TRIGGER_SUPPORT
@@ -13647,6 +13683,10 @@ static void do_ipv6_sn_filter(FILE* fp) {
 #if !defined(_PLATFORM_IPQ_)
         prepare_xconf_rules(fp);
 #endif
+       memset(buf, 0, sizeof(buf));
+       syscfg_get(NULL, "PartnerID", buf, sizeof(buf));
+       if (strcmp(buf, "telekom-dev") == 0 || strcmp(buf, "telekom-hu") == 0 || strcmp(buf, "telekom-de") == 0 || strcmp(buf, "telekom-de-test") == 0)
+           add_qos_skb_mark(fp, AF_INET6);
 
 #ifdef _COSA_INTEL_XB3_ARM_
         fprintf(fp, "-A PREROUTING -i %s -p tcp -m tcp ! --tcp-flags FIN,SYN,RST,ACK SYN -m conntrack --ctstate NEW -j DROP\n",current_wan_ifname);
