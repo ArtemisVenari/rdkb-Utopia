@@ -10009,8 +10009,8 @@ static int do_lan2wan_misc(FILE *filter_fp)
 
 static void do_add_TCP_MSS_rules(FILE *mangle_fp)
 {
-       fprintf(mangle_fp, "-I FORWARD -o %s -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n", current_wan_ifname);
-       fprintf(mangle_fp, "-I OUTPUT -o %s -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n",current_wan_ifname);
+      fprintf(mangle_fp, "-I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+      fprintf(mangle_fp, "-I OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 }
 
 /*
