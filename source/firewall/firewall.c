@@ -777,7 +777,7 @@ static BOOL MD_flag = TRUE;
  * For simplicity purposes we cap the number of syscfg entries within a
  * specific namespace. This cap is controlled by MAX_SYSCFG_ENTRIES
  */
-#define MAX_SYSCFG_ENTRIES 100
+#define MAX_SYSCFG_ENTRIES 128
 
 #define MAX_QUERY 256
 #define MAX_NAMESPACE 64
@@ -2658,6 +2658,18 @@ static int prepare_globals_from_configuration(void)
    }
     FIREWALL_DEBUG("Exiting prepare_globals_from_configuration\n");       
    return(0);
+}
+
+/* Convert subnet mask string to CIDR suffix value */
+static int netmask_to_cidr_suffix (char* netmask) {
+  uint32_t nmask;
+  int cidr_suffix=0;
+  inet_pton(AF_INET, netmask, &nmask);
+  while (nmask) {
+      cidr_suffix += (nmask & 0x1);
+      nmask >>= 1;
+  }
+  return cidr_suffix;
 }
 
 /*
@@ -5459,6 +5471,9 @@ static int do_wan_nat_lan_clients(FILE *fp)
                "-A postrouting_towan -s 172.16.0.0/12  -j SNAT --to-source %s", natip4);
 
      }
+     snprintf(str, sizeof(str),
+           "-A postrouting_towan -s 10.0.0.0/%d  -j SNAT --to-source %s", netmask_to_cidr_suffix(lan_netmask), natip4);
+     fprintf(fp, "%s\n", str);
   }
   else
   {
@@ -9994,8 +10009,8 @@ static int do_lan2wan_misc(FILE *filter_fp)
 
 static void do_add_TCP_MSS_rules(FILE *mangle_fp)
 {
-       fprintf(mangle_fp, "-I FORWARD -o %s -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n", current_wan_ifname);
-       fprintf(mangle_fp, "-I OUTPUT -o %s -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n",current_wan_ifname);
+      fprintf(mangle_fp, "-I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+      fprintf(mangle_fp, "-I OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 }
 
 /*
@@ -14186,6 +14201,16 @@ static void do_ipv6_filter_table(FILE *fp){
              {
                  fprintf(fp, "-A INPUT -i brlan0 -d %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j DROP\n", wanIPv6); // Echo request
                  fprintf(fp, "-A INPUT -i brlan0 -d %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m state --state NEW,INVALID,RELATED -j DROP\n", wanIPv6); // Echo reply
+             }
+      }
+#else
+      if(isPingBlockedV6 == 1)
+      {
+             int i=0;
+             for(i = 0; i < ecm_wan_ipv6_num; i++)
+             {
+                  fprintf(fp, "-A INPUT -i brlan0 -d %s -p icmpv6 -m icmp6 --icmpv6-type 128 -j DROP\n", ecm_wan_ipv6[i]); // Echo request
+                  fprintf(fp, "-A INPUT -i brlan0 -d %s -p icmpv6 -m icmp6 --icmpv6-type 129 -m state --state NEW,INVALID,RELATED -j DROP\n", ecm_wan_ipv6[i]); // Echo reply
              }
       }
 #endif

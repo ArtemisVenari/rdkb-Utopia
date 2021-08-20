@@ -47,6 +47,7 @@ prepare_hostname () {
    SYSEVT_lan_ipaddr_v6=`sysevent get lan_ipaddr_v6`
    LOCDOMAIN_NAME=`syscfg get SecureWebUI_LocalFqdn`
    SECUREWEBUI_ENABLED=`syscfg get SecureWebUI_Enable`
+   IPV6_BRLAN0_ADDRESS=`sysevent get lan_ipaddr_v6`
 
    if [ "" != "$HOSTNAME" ] ; then
       if [ "$MODEL_NUM" == "PX5001B" ] && [ "$SECUREWEBUI_ENABLED" == "true" ]; then
@@ -62,6 +63,9 @@ prepare_hostname () {
        
    if [ "" != "$HOSTNAME" ] ; then
       echo "$LAN_IPADDR     $HOSTNAME" > $HOSTS_FILE
+      if [ "$IPV6_BRLAN0_ADDRESS" != "" ]; then
+          echo "$IPV6_BRLAN0_ADDRESS  $HOSTNAME" >> $HOSTS_FILE
+      fi
    else
       echo -n > $HOSTS_FILE
    fi

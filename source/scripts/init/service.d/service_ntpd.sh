@@ -155,23 +155,23 @@ service_start ()
        # Start NTP Config Creation with Multiple Server Setup
        echo_t "SERVICE_NTPD : Creating NTP config with New NTP Enabled" >> $NTPD_LOG_NAME
        if [ "x$SYSCFG_ntp_server1" != "x" ] && [ "x$SYSCFG_ntp_server1" != "xno_ntp_address" ]; then
-           echo "pool $SYSCFG_ntp_server1 true minpoll 4 maxpoll 5" >> $NTP_CONF_TMP
+           echo "pool $SYSCFG_ntp_server1 true minpoll 14 maxpoll 15" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server2" != "x" ] && [ "x$SYSCFG_ntp_server2" != "xno_ntp_address" ]; then
-           echo "pool $SYSCFG_ntp_server2 true minpoll 4 maxpoll 5" >> $NTP_CONF_TMP
+           echo "pool $SYSCFG_ntp_server2 true minpoll 14 maxpoll 15" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server3" != "x" ] && [ "x$SYSCFG_ntp_server3" != "xno_ntp_address" ]; then
-           echo "pool $SYSCFG_ntp_server3 true minpoll 4 maxpoll 5" >> $NTP_CONF_TMP
+           echo "pool $SYSCFG_ntp_server3 true minpoll 14 maxpoll 15" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server4" != "x" ] && [ "x$SYSCFG_ntp_server4" != "xno_ntp_address" ]; then
-           echo "pool $SYSCFG_ntp_server4 true minpoll 4 maxpoll 5" >> $NTP_CONF_TMP
+           echo "pool $SYSCFG_ntp_server4 true minpoll 14 maxpoll 15" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server5" != "x" ] && [ "x$SYSCFG_ntp_server5" != "xno_ntp_address" ]; then
-           echo "pool $SYSCFG_ntp_server5 true minpoll 4 maxpoll 5" >> $NTP_CONF_TMP
+           echo "pool $SYSCFG_ntp_server5 true minpoll 14 maxpoll 15" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
 
@@ -221,7 +221,6 @@ service_start ()
    QUICK_SYNC_WAN_IP=""
 	
    if [ "$NTPD_INTERFACE" == "erouter0" ]; then
-       sleep 30
        erouter_wait QUICK_SYNC_WAN_IP quickSync
        erouter_wait WAN_IP
    else
@@ -284,7 +283,7 @@ service_start ()
            echo_t "SERVICE_NTPD : Starting NTP Quick Sync" >> $NTPD_LOG_NAME
            if [ "x$BOX_TYPE" = "xHUB4" ] || [ "x$BOX_TYPE" = "xSR300" ]; then
                if [ $EROUTER_IPV6_UP -eq 1 ]; then
-                   $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME & sleep 120 # it will ensure that quick sync will exit in 120 seconds and NTP daemon will start and sync the time
+                   $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME
                else
                    $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -4 -l $NTPD_LOG_NAME & sleep 120 # We have only v4 IP. Restrict to v4.
                fi
@@ -321,7 +320,7 @@ service_start ()
            if [ -n "$QUICK_SYNC_WAN_IP" ]; then
                # Try and Force Quick Sync to Run on a single interface
                echo_t "SERVICE_NTPD : Starting NTP Quick Sync" >> $NTPD_LOG_NAME
-               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME & sleep 120 # it will ensure that quick sync will exit in 120 seconds and NTP daemon will start and sync the time
+               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME
            else
                echo_t "SERVICE_NTPD : Quick Sync Not Run" >> $NTPD_LOG_NAME
            fi
@@ -345,6 +344,23 @@ service_start ()
        FIRSTUSEDATE=`date +%Y-%m-%dT%H:%M:%S`
        syscfg set device_first_use_date "$FIRSTUSEDATE"
    fi
+
+   #remove ntpd_synchronized file if already exists
+   if [ -f /tmp/ntpd_synchronized ];then
+       rm -f /tmp/ntpd_synchronized
+   fi
+
+   #touch file when ntpd is synchroinized
+   NTP_SYNCHRONIZED=""
+   while [ " yes" != "$NTP_SYNCHRONIZED" ]
+   do
+       NTP_SYNCHRONIZED=`timedatectl status | grep -i "synchronized" | cut -d ":" -f2`
+       if [ " yes" = "$NTP_SYNCHRONIZED" ]; then
+           touch /tmp/ntpd_synchronized
+           break
+       fi
+       sleep 5
+   done
 
 }
 

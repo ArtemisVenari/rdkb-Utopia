@@ -182,6 +182,14 @@ case "$1" in
                 echo 1 > /proc/sys/net/ipv6/conf/$LAN_IFNAME/forwarding
             fi
 
+            #if auto_LLA_is_disabled is set to 1 then Eui-64 LLA is disabled
+            #if auto_LLA_is_disabled is set to 0 then Eui-64 LLA is enabled
+            autoLLAisDisabled=`syscfg get auto_LLA_is_disabled`
+            if [ "1" = "$autoLLAisDisabled" ] ; then
+                llaDefaultVal=`syscfg get LLA_default_value`
+                ip link set dev brlan0 addrgenmode none
+                ip -6 addr add scope link $llaDefaultVal/64 dev brlan0
+            fi
 
     if [ xbrlan0 = x${LAN_IFNAME} ]; then
         SYSEVT_lan_ipaddr_v6_prev=`sysevent get lan_ipaddr_v6_prev`

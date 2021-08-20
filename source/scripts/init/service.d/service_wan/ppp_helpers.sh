@@ -113,7 +113,9 @@ prepare_pppd_ip_up_script() {
    echo "sysevent set wan-status started" >> $IP_UP_FILENAME
    echo "sysevent set wan_service-status started" >> $IP_UP_FILENAME
    echo "sysevent set firewall-restart NULL" >> $IP_UP_FILENAME
-   echo "sysevent set sshd-restart" >> $IP_UP_FILENAME
+   if [ `syscfg get mgmt_wan_sshaccess` == "1" ]; then
+       echo "sysevent set sshd-restart" >> $IP_UP_FILENAME
+   fi
    echo "dmcli eRT setv Device.NotifyComponent.SetNotifi_ParamName string WAN_IP,Retrieved" >> $IP_UP_FILENAME
 
    echo "echo \"[utopia][pppd ip-up] sysevent set pppd_current_wan_ifname \$1\" > /dev/console" >> $IP_UP_FILENAME
@@ -210,7 +212,9 @@ prepare_pppd_ip_down_script() {
 
    echo "sysevent set ppp_status down" >> $IP_DOWN_FILENAME
    echo "ulog ip-down event \"sysevent set ppp_status down\"" >> $IP_DOWN_FILENAME
-   echo "sed -i '/non_internet\|:/!d' $RESOLV_CONF" >> $IP_DOWN_FILENAME
+   echo "cat $RESOLV_CONF > $RESOLV_CONF_TMP" >> $IP_DOWN_FILENAME
+   echo "cat $RESOLV_CONF_TMP | grep non > $RESOLV_CONF" >> $IP_DOWN_FILENAME
+   echo "rm -rf $RESOLV_CONF_TMP" >> $IP_DOWN_FILENAME
    echo "echo \"[utopia][pppd ip-down] <\`date\`>\" > /dev/console" >> $IP_DOWN_FILENAME
 
    echo "sysevent set wan-status stopped" >> $IP_DOWN_FILENAME
@@ -224,7 +228,9 @@ prepare_pppd_ip_down_script() {
    echo "dmcli eRT setv Device.NotifyComponent.SetNotifi_ParamName string WAN_IP,Not_Retrieved" >> $IP_DOWN_FILENAME
 
    #TODO:Need to revisit this part once the SKY Version-2 is available.
-   echo "sysevent set sshd-restart" >> $IP_DOWN_FILENAME
+   if [ `syscfg get mgmt_wan_sshaccess` == "1" ]; then
+       echo "sysevent set sshd-restart" >> $IP_DOWN_FILENAME
+   fi
 
    chmod 777 $IP_DOWN_FILENAME
 }
