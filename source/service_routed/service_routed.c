@@ -1068,7 +1068,10 @@ if(!strncmp(out,"true",strlen(out)))
         	fprintf(fp, "interface %s\n", interface_name);
         	fprintf(fp, "   no ipv6 nd suppress-ra\n");
 		memset(cmd,0,sizeof(cmd));
-		sprintf(cmd, "%s%s",interface_name,"_ipaddr_v6");
+                if(strcmp(interface_name,"brlan1") == 0)
+                   sprintf(cmd, "%s","brlan1_IPv6_prefix");
+                else
+                   sprintf(cmd, "%s%s",interface_name,"_ipaddr_v6");
 		memset(prefix,0,sizeof(prefix));
 		sysevent_get(sefd, setok, cmd, prefix, sizeof(prefix));
         	if (strlen(prefix) != 0) {
