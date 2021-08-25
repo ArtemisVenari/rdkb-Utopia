@@ -714,7 +714,7 @@ static int isTriggerMonitorRestartNeeded = 0;
 #endif
 static int isLanHostTracking             = 0;
 static int isDMZbyMAC                    = 0;   // DMZ is known by MAC address
-static int isRawTableUsed                = 0; 
+static int isRawTableUsed                = 1;
 static int isCacheActive                 = 0;
 static int isCmDiagEnabled;
 static int isHttpBlocked;                       // Block incoming HTTP/HTTPS traffic
