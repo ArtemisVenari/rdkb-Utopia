@@ -11665,6 +11665,56 @@ static int prepare_xconf_rules(FILE *mangle_fp) {
    return 0;
 }
 
+static int mark_dedicated_routing_tables(FILE *mangle_fp)
+{
+   char wan_physical_if[32] = {0};
+   char buf[32] = {0};
+   char vlanName[32] = {0};
+   char vlanID[16] = {0};
+   char vlanRouteID[16] = {0};
+   char ip[32] = {0};
+   char subnet[16] = {0};
+   char sysevent[128] = {0};
+   int numVlanIfc = 0;
+
+   syscfg_get(NULL, "wan_physical_ifname", wan_physical_if, sizeof(wan_physical_if));
+   syscfg_get(NULL, "Vlan_NumOfIfs", buf, sizeof(buf));
+   numVlanIfc = atoi(buf);
+   memset(buf, 0, sizeof(buf));
+
+   for(int vlanCount = 1; vlanCount <= numVlanIfc; vlanCount++ ){
+       snprintf(buf, sizeof(buf), "Vlan_%d_Name", vlanCount);
+       syscfg_get(NULL, buf, vlanName, sizeof(vlanName));
+       memset(buf, 0, sizeof(buf));
+       if(!strcmp(vlanName, "VoIP"))
+       {
+           memset(ip, 0, sizeof(ip));
+           memset(subnet, 0, sizeof(subnet));
+           memset(vlanRouteID, 0, sizeof(vlanRouteID));
+           // get ip and mask from sysevents
+           snprintf(buf, sizeof(buf), "Vlan_%d_ID", vlanCount);
+           syscfg_get(NULL, buf, vlanID, sizeof(vlanID));
+           memset(buf, 0, sizeof(buf));
+           snprintf(sysevent, sizeof(sysevent), "ipv4_%s.%s_dhcp_server", wan_physical_if, vlanID);
+           if(sysevent_get(sysevent_fd, sysevent_token, sysevent, ip, sizeof(ip)) != 0)
+           {
+               FIREWALL_DEBUG("ERROR: failed to get sysevent ipv4_<interface>_dhcp_server\n");
+           }
+           snprintf(sysevent, sizeof(sysevent), "ipv4_%s.%s_subnet", wan_physical_if, vlanID);
+           if(sysevent_get(sysevent_fd, sysevent_token, sysevent, subnet, sizeof(subnet)) != 0)
+           {
+               FIREWALL_DEBUG("ERROR: failed to get sysevent ipv4_<interface>_subnet\n");
+           }
+           // get routing table id
+           snprintf(buf, sizeof(buf), "Vlan_%d_ROUTE_ID", vlanCount);
+           syscfg_get(NULL, buf, vlanRouteID, sizeof(vlanRouteID));
+           memset(buf, 0, sizeof(buf));
+           fprintf(mangle_fp, "-A OUTPUT -d %s/%s -j MARK --set-mark 0x%s\n", ip, subnet, vlanRouteID);
+       }
+   }
+   return 0;
+}
+
 static int add_qos_skb_mark(FILE *mangle_fp, int family)
 {
    int retPsmGet = CCSP_SUCCESS;
@@ -11871,6 +11921,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    prepare_lnf_internet_rules(mangle_fp,4);
    prepare_xconf_rules(mangle_fp);
    add_qos_skb_mark(mangle_fp, AF_INET);
+   mark_dedicated_routing_tables(mangle_fp);
 
 #ifdef CONFIG_BUILD_TRIGGER
 #ifndef CONFIG_KERNEL_NF_TRIGGER_SUPPORT
