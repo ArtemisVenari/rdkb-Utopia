@@ -11761,14 +11761,10 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
 
                if (strcmp(token, "DNS") == 0) {
                    dest_port = 53; // for DNS
-                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\"
-										-o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
-                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\"
-										-o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
-                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\"
-										-o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
-                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\"
-										-o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
                    dest_port = 0;
 		}
 
