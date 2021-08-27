@@ -850,6 +850,7 @@ fi
    then
        echo "domain-needed" >> $LOCAL_DHCP_CONF
        echo "bogus-priv" >> $LOCAL_DHCP_CONF
+       echo "strict-order" >> $LOCAL_DHCP_CONF
 
        if [ "$CAPTIVE_PORTAL_MODE" = "true" ]
        then
