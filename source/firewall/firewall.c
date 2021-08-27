@@ -9889,10 +9889,9 @@ static int do_lan2wan_helpers(FILE *raw_fp)
 {
    char str[MAX_QUERY];
    FIREWALL_DEBUG("Entering do_lan2wan_helpers\n");
-
    /* Allow FTP passthrough to work */
    fprintf(raw_fp, "-A lan2wan_helpers -p tcp --dport 21 -j CT --helper ftp\n");
-
+ 
 #if defined(CONFIG_CCSP_VPN_PASSTHROUGH)
    char query[2] = {'\0'};
 
@@ -9902,6 +9901,7 @@ static int do_lan2wan_helpers(FILE *raw_fp)
        FIREWALL_DEBUG("Enabling PPTP passthrough helper\n");
    }
 #endif
+   fprintf(raw_fp, "-A lan2wan_helpers -p tcp --dport 554 -j CT --helper rtsp\n");
 
    FIREWALL_DEBUG("Exiting do_lan2wan_helpers\n");
    return(0);
