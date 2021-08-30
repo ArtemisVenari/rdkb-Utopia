@@ -118,6 +118,12 @@ find_active_brg_instances(){
     sysevent set l3net_instances "${L3NET_ACTIVE_LIST}"
 }
 
+# Return bsscfg_idx for (primary or virtual) wl interface; Return "" for not a wl IF.
+wlif_idx() {
+        idx=`wl -i $1 bsscfg_idx 2>/dev/null`
+        echo "$idx"
+}
+
 #------------------------------------------------------------------
 # ENTRY
 #------------------------------------------------------------------
@@ -294,28 +300,6 @@ case "$1" in
             sysevent set multinet-up 9
         fi
 
-        # --------------------------------------------------------------------
-        # RPi specific change begin
-        # --------------------------------------------------------------------
-
-        PHY_BRIDGE_IFNAME=`syscfg get lan_ifname`
-        WAN_PHY_ETH_NAME=`syscfg get wan_eth_physical_ifname`
-        PHY_ETH_IFNAMES=`syscfg get lan_ethernet_physical_ifnames`
-        IFS=' ' read -r -a PHY_ETH_IFNAME_ARRAY <<< "$PHY_ETH_IFNAMES"
-        for PHY_ETH_IFNAME in "${PHY_ETH_IFNAME_ARRAY[@]}"
-        do
-            echo "LAN HANDLER : PHY_ETH_IFNAME = $PHY_ETH_IFNAME"
-            ifconfig $PHY_ETH_IFNAME up
-            if [ "$PHY_ETH_IFNAME" = "$WAN_PHY_ETH_NAME" ]; then
-                continue
-            fi
-            brctl addif $PHY_BRIDGE_IFNAME $PHY_ETH_IFNAME
-        done
-
-        # --------------------------------------------------------------------
-        # RPi specific change end
-        # --------------------------------------------------------------------
-
         echo_t "LAN HANDLER : Triggering RDKB_FIREWALL_RESTART after nfqhandler"
 	t2CountNotify "SYS_SH_RDKB_FIREWALL_RESTART"
         sysevent set firewall-restart 
@@ -330,6 +314,36 @@ case "$1" in
 	t2ValNotify "btime_laninit_split" "$uptime"
      ;;
    
+    webserver)
+        if [ x"$2" = x"started" ]; then
+            PHY_BRIDGE_IFNAME=`syscfg get lan_ifname`
+            WAN_PHY_ETH_NAME=`syscfg get wan_eth_physical_ifname`
+            PHY_ETH_IFNAMES=`syscfg get lan_ethernet_physical_ifnames`
+            IFS=' ' read -r -a PHY_ETH_IFNAME_ARRAY <<< "$PHY_ETH_IFNAMES"
+            for PHY_ETH_IFNAME in "${PHY_ETH_IFNAME_ARRAY[@]}"
+            do
+                echo "LAN HANDLER : PHY_ETH_IFNAME = $PHY_ETH_IFNAME"
+                ifconfig $PHY_ETH_IFNAME up
+                if [ "$PHY_ETH_IFNAME" = "$WAN_PHY_ETH_NAME" ]; then
+                    continue
+                fi
+                brctl addif $PHY_BRIDGE_IFNAME $PHY_ETH_IFNAME
+            done
+
+            wl_ifnames=`cat /etc/wlan/apps_defaults.txt | grep -i bsd_ifnames | cut -d '=' -f 2`
+            lan_ifname=`syscfg get lan_ifname`
+            for name in $wl_ifnames
+            do
+                if [ "$(wlif_idx $name)" == "" ]; then
+                    # Not a wl interface
+                    continue
+                fi
+                brctl addif $lan_ifname $name 2>/dev/null
+                ifconfig $name up
+            done
+        fi
+   ;;
+
    ipv4-resync)
         LAN_INST=`sysevent get primary_lan_l3net`
         if [ x"$2" = x"$LAN_INST" ]; then
