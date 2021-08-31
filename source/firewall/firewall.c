@@ -11361,7 +11361,7 @@ static int isInCaptivePortal()
 
    FIREWALL_DEBUG("Exiting isInCaptivePortal\n");	 
 
-   if((isRedirectionDefault) && (isNotifyDefault) && (isResponse204))
+   if((isRedirectionDefault) && (isResponse204))
    {
       printf("CP DNS Redirection : Return 1\n"); 
          FIREWALL_DEBUG("CP DNS Redirection : Return 1\n"); 	
