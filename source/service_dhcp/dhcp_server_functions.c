@@ -197,6 +197,7 @@ int prepare_hostname()
                                 }
                                 if (0 != lan_ipaddr_v6[0])
                                 {
+				    fprintf(l_fHosts_File, "%s          %s\n", "fe80::1", l_cHostName);
                                     fprintf(l_fHosts_File, "%s          %s\n", lan_ipaddr_v6, l_cHostName);
                                 } 
 			}
