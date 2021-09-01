@@ -13981,6 +13981,7 @@ int prepare_ipv6_firewall(const char *fw_file)
 	* So we dont set it up unless we actually used it
 	*/
 	if (isRawTableUsed) {
+                fprintf(fp, "*raw\n-F\n");
 		while (NULL != (strp = fgets(string, MAX_QUERY, raw_fp)) ) {
 		   fprintf(fp, "%s", string);
 		}
