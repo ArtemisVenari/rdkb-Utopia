@@ -1036,6 +1036,7 @@ if(!strncmp(out,"true",strlen(out)))
 	{
 
         	memset(interface_name,0,sizeof(interface_name));
+                memset(name_servs, 0, sizeof(name_servs));
                 #ifdef _COSA_INTEL_XB3_ARM_
                 char LnFIfName[32] = {0} , LnFBrName[32] = {0} ;
                 syscfg_get( NULL, "iot_ifname", LnFIfName, sizeof(LnFIfName));
@@ -1132,7 +1133,8 @@ if(!strncmp(out,"true",strlen(out)))
                         for (start = name_servs; (tok = strtok_r(start, " ", &sp)); start = NULL)
                         {
                         // Modifying rdnss value to fix the zebra config.
-                        fprintf(fp, "   ipv6 nd rdnss %s 86400\n", tok);
+                        rdnsslft = 3*RA_INTERVAL;
+                        fprintf(fp, "   ipv6 nd rdnss %s %d\n", tok, rdnsslft);
                         }
 
                         memset(out,0,sizeof(out));
