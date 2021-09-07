@@ -14590,6 +14590,12 @@ v6GPFirewallRuleNext:
       fprintf(fp, "-A FORWARD -s 0::/4  -j LOG_FORWARD_DROP\n");
       fprintf(fp, "-A FORWARD -d 0::/4  -j LOG_FORWARD_DROP\n");
 
+       /* Do not forward packets from deprecated prefix to WAN */
+       char prev_prefix[MAX_QUERY] = {0};
+       sysevent_get(sysevent_fd, sysevent_token, "previous_ipv6_prefix", prev_prefix, sizeof(prev_prefix));
+       if (prev_prefix[0] != '\0')
+             fprintf(fp, "-A FORWARD -i brlan0 -o erouter0 -s %s -j REJECT --reject-with icmp6-policy-fail\n", prev_prefix);
+
       // Basic RPF check on the egress & ingress traffic
       char prefix[129];
       sysevent_get(sysevent_fd, sysevent_token, "ipv6_prefix", prefix, sizeof(prefix));
@@ -14933,14 +14939,6 @@ v6GPFirewallRuleNext:
     }
     fprintf(fp, "-I lan2wan -j lan2wan_misc_ipv6\n");
 #endif
-
-    {
-        /* Do not forward packets from deprecated prefix to WAN */
-        char prev_prefix[MAX_QUERY] = {0};
-        sysevent_get(sysevent_fd, sysevent_token, "previous_ipv6_prefix", prev_prefix, sizeof(prev_prefix));
-        if (prev_prefix[0] != '\0')
-            fprintf(fp, "-I lan2wan -i brlan0 -s %s -j REJECT --reject-with icmp6-addr-unreachable\n", prev_prefix);
-    }
 
 end_of_ipv6_firewall:
 
