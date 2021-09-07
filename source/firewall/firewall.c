@@ -13648,6 +13648,9 @@ static void do_ipv6_sn_filter(FILE* fp) {
         fprintf(fp, "-A PREROUTING -i %s -d ff00::/8 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -m limit --limit 20/sec -j ACCEPT\n", ifnames[i]);
         fprintf(fp, "-A PREROUTING -i %s -d ff00::/8 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -j DROP\n", ifnames[i]);
     }
+        /* LAN ICMPv6 (NS) DOS rules */  
+        fprintf(fp, "-A PREROUTING -i brlan0 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -m limit --limit 20/sec -j ACCEPT\n");
+        fprintf(fp, "-A PREROUTING -i brlan0 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -j DROP\n");
 
         //Packets with same source and destination addresses
         if (current_wan_ip6addr[0] != '\0')
