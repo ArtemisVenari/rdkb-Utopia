@@ -516,6 +516,9 @@ if [ "$BOX_TYPE" = "TCH" ];then
        fi
        cat /proc/rip/0159 >> /certs/client.crt
        cp /proc/rip/015a /certs/client.key
+elif [ "$BOX_TYPE" = "SGC" ];then
+       rdkf-fd get client-cert > /certs/client.crt
+       rdkf-fd get client-priv-key > /certs/client.key
 else
        cp /nvram/client.crt /certs/client.crt
        cp /nvram/client.key /certs/client.key
