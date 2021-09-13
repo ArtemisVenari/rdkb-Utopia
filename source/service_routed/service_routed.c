@@ -1031,7 +1031,7 @@ if(!strncmp(out,"true",strlen(out)))
 	memset(out,0,sizeof(out));
 	memset(cmd,0,sizeof(cmd));
 	syscfg_get(NULL, "IPv6_Interface", out, sizeof(out));
-	pt = out;
+	pt = strdup(out);
 	while((token = strtok_r(pt, ",", &pt)))
 	{
 
