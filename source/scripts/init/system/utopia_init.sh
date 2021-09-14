@@ -509,12 +509,7 @@ if [ -f /nvram/cacert.pem ]; then
 fi
 
 if [ "$BOX_TYPE" = "TCH" ];then
-       #get issuer from cert | remove leading 'issuer=' | separate by '=' and print last element | remove leading space | replace space by underscore
-       issuer=`openssl x509 -in /proc/rip/0159 -issuer -noout | sed 's@^issuer=@@' | awk -F= '{print $NF}' | sed -e 's/^[ \t]*//' | tr ' ' '_'`
-       if [ -f "/certs/${issuer}.pem" ]; then
-           cat /certs/${issuer}.pem > /certs/client.crt
-       fi
-       cat /proc/rip/0159 >> /certs/client.crt
+       cp /proc/rip/0159 /certs/client.crt
        cp /proc/rip/015a /certs/client.key
 elif [ "$BOX_TYPE" = "SGC" ];then
        rdkf-fd get client-cert > /certs/client.crt
