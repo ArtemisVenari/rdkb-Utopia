@@ -510,6 +510,15 @@ fi
 
 if [ "$BOX_TYPE" = "TCH" ];then
        cp /proc/rip/0159 /certs/client.crt
+       if [ "`grep BEGIN /certs/client.crt | wc -l`" != "2" ]; then
+       #get issuer from cert | remove leading 'issuer=' | separate by '=' and print last element | remove leading space | replace space by underscore
+              issuer=`openssl x509 -in /certs/client.crt -issuer -noout | sed 's@^issuer=@@' | awk -F= '{print $NF}' | sed -e 's/^[ \t]*//' | tr ' ' '_'`
+              if [ -f "/certs/${issuer}.pem" ]; then
+                     cat /certs/${issuer}.pem >> /certs/client.crt
+              else
+                     echo_t "Intermediate certificate ${issuer}.pem could not be found!"
+              fi
+       fi
        cp /proc/rip/015a /certs/client.key
 elif [ "$BOX_TYPE" = "SGC" ];then
        rdkf-fd get client-cert > /certs/client.crt
