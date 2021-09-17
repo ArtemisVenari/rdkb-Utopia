@@ -14899,7 +14899,7 @@ v6GPFirewallRuleNext:
         sysevent_get(sysevent_fd, sysevent_token, "wan6_prefixlen", wanPrefixLen, sizeof(wanPrefixLen));
 
         if ((wanPrefix[0] != '\0') && ((atoi(wanPrefixLen) >= 48) && (atoi(wanPrefixLen) < 64))) {
-            fprintf(fp, "-I lan2wan -i brlan0 -d %s/%s -j REJECT --reject-with icmp6-addr-unreachable\n", wanPrefix, wanPrefixLen);
+            fprintf(fp, "-I lan2wan -i brlan0 -o erouter0 -d %s/%s -j REJECT --reject-with icmp6-addr-unreachable\n", wanPrefix, wanPrefixLen);
         }
     }
 

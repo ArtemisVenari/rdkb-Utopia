@@ -402,6 +402,10 @@ static int route_set(struct serv_routed *sr)
          return -1;
     return 0;
 #else
+#ifdef _DT_WAN_Manager_Enable_
+    /* BCM CSP CS00012200676 - Avoid duplicate Ipv6 default route entry addition in erouter table as already main routing table has the default route added via Router Adv obtained from operator network */
+    return 0;
+#endif
     if (vsystem("ip -6 rule add iif brlan0 table erouter;"
             "gw=$(ip -6 route show default dev erouter0 | awk '/via/ {print $3}');"
             "if [ \"$gw\" != \"\" ]; then"
