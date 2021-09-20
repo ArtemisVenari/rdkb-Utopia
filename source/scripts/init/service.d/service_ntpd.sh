@@ -283,12 +283,12 @@ service_start ()
            echo_t "SERVICE_NTPD : Starting NTP Quick Sync" >> $NTPD_LOG_NAME
            if [ "x$BOX_TYPE" = "xHUB4" ] || [ "x$BOX_TYPE" = "xSR300" ]; then
                if [ $EROUTER_IPV6_UP -eq 1 ]; then
-                   $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME
+                   $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME & sleep 120 # it will ensure that quick sync will exit in 120 seconds and NTP daemon will start and sync the time 
                else
                    $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -4 -l $NTPD_LOG_NAME & sleep 120 # We have only v4 IP. Restrict to v4.
                fi
            else
-               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME & sleep 120 # it will ensure that quick sync will exit in 120 seconds and NTP daemon will start and sync the time
+               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME
            fi
        else
            echo_t "SERVICE_NTPD : Quick Sync Not Run" >> $NTPD_LOG_NAME
