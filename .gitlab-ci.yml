@@ -2,7 +2,10 @@ bridge:
   stage: build
   only:
     - merge_requests
+  variables:
+    MERGE_REQUEST_BRANCH: ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
+    BUILD_TARGETS: build-broadcom
   trigger:
     project: rdk-factory/software-stack/rdkb
-    branch: master
+    branch: feature/TCON20-6230-update-all-git-repositories
     strategy: depend
