@@ -157,8 +157,9 @@ static int isValidLANIP(const char* ipStr)
 int prepare_hostname()
 {
     char l_cHostName[16] = {0}, l_cCurLanIP[16] = {0}, l_clocFqdn[16] = {0}, l_cSecWebUI_Enabled[8] = {0};
-    char lan_ipaddr_v6[MAXCHAR];
+    char lan_ipaddr_v6[MAXCHAR], lan_ipaddr_v6_lla[MAXCHAR];
     memset(lan_ipaddr_v6,0,MAXCHAR);
+    memset(lan_ipaddr_v6_lla,0,MAXCHAR);
 	FILE *l_fHosts_File = NULL;
 	FILE *l_fHosts_Name_File = NULL;
 	int l_iRes = 0;
@@ -168,6 +169,7 @@ int prepare_hostname()
         syscfg_get(NULL, "SecureWebUI_LocalFqdn", l_clocFqdn, sizeof(l_clocFqdn));
         syscfg_get(NULL, "SecureWebUI_Enable", l_cSecWebUI_Enabled, sizeof(l_cSecWebUI_Enabled));
         sysevent_get(g_iSyseventfd, g_tSysevent_token, "lan_ipaddr_v6", lan_ipaddr_v6, sizeof(lan_ipaddr_v6));
+        syscfg_get(NULL, "LLA_default_value", lan_ipaddr_v6_lla, sizeof(lan_ipaddr_v6_lla));
 
     // Open in Write mode each time for avoiding duplicate entries RDKB- 12295
 	l_fHosts_File = fopen(HOSTS_FILE, "w+");
@@ -194,10 +196,10 @@ int prepare_hostname()
                                 if (strncmp(l_cSecWebUI_Enabled, "true", 4))
                                 {
 				    fprintf(l_fHosts_File, "%s		%s\n", l_cCurLanIP, l_cHostName);
+                                    fprintf(l_fHosts_File, "%s          %s\n", lan_ipaddr_v6_lla, l_cHostName);
                                 }
                                 if (0 != lan_ipaddr_v6[0])
                                 {
-				    fprintf(l_fHosts_File, "%s          %s\n", "fe80::1", l_cHostName);
                                     fprintf(l_fHosts_File, "%s          %s\n", lan_ipaddr_v6, l_cHostName);
                                 } 
 			}
