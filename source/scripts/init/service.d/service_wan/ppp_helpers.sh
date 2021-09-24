@@ -174,6 +174,7 @@ prepare_pppd_ipv6_up_script() {
 IPV6_ROUTER_ADV=\`syscfg get router_adv_provisioning_enable\`
 if [ "1" = "\$IPV6_ROUTER_ADV" ] ; then
    echo 2 > /proc/sys/net/ipv6/conf/\$1/accept_ra    # Accept RA even when forwarding is enabled
+   echo 0 > /proc/sys/net/ipv6/conf/\$1/accept_ra_mtu    # Accept RA MTU for MRU negotiation
    echo 1 > /proc/sys/net/ipv6/conf/\$1/accept_ra_dfrtr # Accept default router (metric 1024)
    echo 1 > /proc/sys/net/ipv6/conf/\$1/accept_ra_pinfo # Accept prefix information for SLAAC
    echo 1 > /proc/sys/net/ipv6/conf/\$1/autoconf     # Do SLAAC

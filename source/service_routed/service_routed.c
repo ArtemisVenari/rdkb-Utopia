@@ -1075,6 +1075,9 @@ if(!strncmp(out,"true",strlen(out)))
 		memset(cmd,0,sizeof(cmd));
                 if(strcmp(interface_name,"brlan1") == 0)
                    sprintf(cmd, "%s","brlan1_IPv6_prefix");
+                   syscfg_get(NULL, "router_mtu", ra_mtu, sizeof(ra_mtu));
+                   if (strcmp(ra_mtu, "0") != 0)
+                      fprintf(fp, "   ipv6 nd mtu %s\n", ra_mtu);
                 else
                    sprintf(cmd, "%s%s",interface_name,"_ipaddr_v6");
 		memset(prefix,0,sizeof(prefix));
