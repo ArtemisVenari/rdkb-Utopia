@@ -1527,35 +1527,32 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                                 cJSON *paramObjVal = NULL;
                                 while( param )
                                 {
+                                    static const char* encrypted_keys[] = {
+                                        "wan_proto_username",
+                                        "wan_proto_password",
+                                        "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password",
+                                        "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword",
+                                    };
+                                    unsigned i;
+
                                     key = param->string;
                                     cJSON * value_obj = cJSON_GetObjectItem(partnerObj, key);
                                     paramObjVal = cJSON_GetObjectItem(value_obj, "ActiveValue");
                                     if(paramObjVal)
                                         value = paramObjVal->valuestring;
 
-                                    if (!strcmp(key, "wan_proto_username"))
+                                    for (i = 0; i < (sizeof(encrypted_keys)/sizeof(*encrypted_keys)); i++)
                                     {
-                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf)))
-                                            APPLY_PRINT("Error in decryption of wan_proto_username");
-                                        strncpy(value, buf, sizeof(buf));
-                                    }
-                                    else if (!strcmp(key, "wan_proto_password"))
-                                    {
-                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf)))
-                                            APPLY_PRINT("Error in decryption of wan_proto_password");
-                                        strncpy(value, buf, sizeof(buf));
-                                    }
-                                    else if (!strcmp(key, "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password"))
-                                    {
-                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf)))
-                                            APPLY_PRINT("Error in decryption of dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password");
-                                        strncpy(value, buf, sizeof(buf));
-                                    }
-                                    else if (!strcmp(key, "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword"))
-                                    {
-                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf)))
-                                            APPLY_PRINT("Error in decryption of dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword");
-                                        strncpy(value, buf, sizeof(buf));
+                                        if (!strcmp(key, encrypted_keys[i]))
+                                        {
+                                            if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf))) {
+                                                APPLY_PRINT("Error in decryption of %s\n", key);
+                                                memset(value, 0, sizeof(value));
+                                            } else {
+                                                strncpy(value, buf, sizeof(buf));
+                                            }
+                                            break;
+                                        }
                                     }
 
                                     if (0 != strstr (key, "dmsb."))
