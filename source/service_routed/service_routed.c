@@ -535,6 +535,8 @@ static int gen_zebra_conf(int sefd, token_t setok)
     char wan_st[16] = {0};
     char dhcpv6_server_type[5]= {0};
     syscfg_get(NULL, "dhcpv6s00::servertype", dhcpv6_server_type, sizeof(dhcpv6_server_type));
+    char ra_validlft[16] = {0};
+    syscfg_get(NULL, "ipv6_ra_ValidTime", ra_validlft, sizeof(ra_validlft));
 
 #ifdef _HUB4_PRODUCT_REQ_
     char server_type[16] = {0};
@@ -723,9 +725,9 @@ static int gen_zebra_conf(int sefd, token_t setok)
                 //If WAN has stopped, advertise the prefix with lifetime 0 so LAN clients don't use it any more
                 if (strcmp(wan_st, "stopped") == 0) {
                     if (strcmp(dhcpv6_server_type, "1" ) == 0)
-                        fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", prefix, valid_lft);
+                        fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", prefix, ra_validlft);
                     else
-                        fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", prefix, valid_lft);
+                        fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", prefix, ra_validlft);
                 }
                 else
                 {
@@ -1083,14 +1085,29 @@ if(!strncmp(out,"true",strlen(out)))
 		memset(prefix,0,sizeof(prefix));
 		sysevent_get(sefd, setok, cmd, prefix, sizeof(prefix));
         	if (strlen(prefix) != 0) {
-                    if (strcmp(dhcpv6_server_type,"1") == 0 )
-                        fprintf(fp, "   ipv6 nd prefix %s %s %s off-link no-autoconfig\n", prefix, valid_lft, preferred_lft);
+                    //If WAN has stopped, advertise the prefix with lifetime 0 so LAN clients don't use it any more
+                    if (strcmp(wan_st, "stopped") == 0) {
+                        if (strcmp(dhcpv6_server_type,"1") == 0 )
+                           fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", prefix, ra_validlft);
+                        else
+                           fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", prefix, ra_validlft);
+                    }
                     else
-                        fprintf(fp, "   ipv6 nd prefix %s %s %s router-address\n", prefix, valid_lft, preferred_lft);
+                    {
+                        if (strcmp(dhcpv6_server_type, "1" ) == 0)
+                            fprintf(fp, "   ipv6 nd prefix %s %s %s off-link no-autoconfig\n", prefix, valid_lft, preferred_lft);
+                        else
+                            fprintf(fp, "   ipv6 nd prefix %s %s %s router-address\n", prefix, valid_lft, preferred_lft);
+                    }
                 }
 
         	fprintf(fp, "   ipv6 nd ra-interval 60\n"); //Set ra-interval to default 60 seconds.
-        	fprintf(fp, "   ipv6 nd ra-lifetime 180\n");
+                if ( (strcmp(wan_st, "stopped") == 0) || (strcmp(ipv6_wan_defrtr, "0") == 0) || (strcmp(preferred_lft, "0") == 0) || (strcmp(valid_lft, "0") == 0) || (atoi(rtmod) != 2 && atoi(rtmod) != 3) )
+                {
+                    fprintf(fp, "   ipv6 nd ra-lifetime 0\n");
+                }
+                else
+                    fprintf(fp, "   ipv6 nd ra-lifetime 180\n");
 
         	syscfg_get(NULL, "router_managed_flag", m_flag, sizeof(m_flag));
         	if (strcmp(m_flag, "1") == 0)
