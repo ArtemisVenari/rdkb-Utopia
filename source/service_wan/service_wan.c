@@ -653,6 +653,7 @@ static int wan_start(struct serv_wan *sw)
     /* do start */
     sysevent_set(sw->sefd, sw->setok, "wan_service-status", "starting", 0);
 
+#if defined(_PLATFORM_IPQ_)
     /*
      * If we are in routing mode and executing a wan-restart
      * sysevent last_erouter_mode will allow us to stop the
@@ -660,6 +661,7 @@ static int wan_start(struct serv_wan *sw)
      */
     syscfg_get(NULL, "last_erouter_mode", buf, sizeof(buf));
     sysevent_set(sw->sefd, sw->setok, "last_erouter_mode", buf, 0);
+#endif
 
 #if !defined(_WAN_MANAGER_ENABLED_)
     if (wan_iface_up(sw) != 0) {
@@ -799,9 +801,11 @@ static int wan_start(struct serv_wan *sw)
             system(postd_cmd);
     }
 
+#if !defined(_WAN_MANAGER_ENABLED_)
     sysevent_set(sw->sefd, sw->setok, "wan_service-status", "started", 0);
     sysevent_set(sw->sefd, sw->setok, "current_wan_state", "up", 0);
     sysevent_set(sw->sefd, sw->setok, "wan-status", "started", 0);
+#endif
 
     fprintf(stderr, "[%s] start firewall fully\n", PROG_NAME);
 
@@ -880,6 +884,7 @@ static int wan_stop(struct serv_wan *sw)
     /* do stop */
     sysevent_set(sw->sefd, sw->setok, "wan_service-status", "stopping", 0);
 
+#if defined(_PLATFORM_IPQ_)
     /*
      * To facilitate mode switch between IPV4, IPv6 and Mix mode we set last_erouter_mode
      * to 1, 2, 3 respectively and do wan-restart, to stop the right set of services we
@@ -905,6 +910,7 @@ static int wan_stop(struct serv_wan *sw)
         sw->rtmod = WAN_RTMOD_UNKNOW;
         break;
     }
+#endif
 
     /*
      * Fetching the configuration of previously running WAN service.
