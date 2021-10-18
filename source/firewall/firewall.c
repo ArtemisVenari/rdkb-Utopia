@@ -13617,7 +13617,7 @@ static int prepare_stopped_ipv4_firewall(FILE *file_fp)
 #ifdef _HUB4_PRODUCT_REQ_
 static char * ifnames[] = { wan6_ifname };
 #else
-static char * ifnames[] = { wan6_ifname, ecm_wan_ifname, emta_wan_ifname};
+static char * ifnames[] = { lan_ifname, ecm_wan_ifname, emta_wan_ifname};
 #endif /* * _HUB4_PRODUCT_REQ_ */
 static int numifs = sizeof(ifnames) / sizeof(*ifnames);
 /*----*/
@@ -13651,14 +13651,10 @@ static void do_ipv6_sn_filter(FILE* fp) {
         sysevent_get(sysevent_fd, sysevent_token, ifIpv6AddrKey, mcastAddrStr, sizeof(mcastAddrStr));
         if (mcastAddrStr[0] != '\0')
             fprintf(fp, "-A PREROUTING -i %s -d %s -p ipv6-icmp -m icmp6 --icmpv6-type 135 -m limit --limit 20/sec -j ACCEPT\n", ifnames[i], mcastAddrStr);
-        
-        fprintf(fp, "-A PREROUTING -i %s -d ff00::/8 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -m limit --limit 20/sec -j ACCEPT\n", ifnames[i]);
-        fprintf(fp, "-A PREROUTING -i %s -d ff00::/8 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -j DROP\n", ifnames[i]);
+       /* NS Throttling rules for WAN and LAN */ 
+        fprintf(fp, "-A PREROUTING -i %s -p ipv6-icmp -m icmp6 --icmpv6-type 135 -m limit --limit 20/sec -j ACCEPT\n", ifnames[i]);
+        fprintf(fp, "-A PREROUTING -i %s -p ipv6-icmp -m icmp6 --icmpv6-type 135 -j DROP\n", ifnames[i]);
     }
-        /* LAN ICMPv6 (NS) DOS rules */  
-        fprintf(fp, "-A PREROUTING -i brlan0 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -m limit --limit 20/sec -j ACCEPT\n");
-        fprintf(fp, "-A PREROUTING -i brlan0 -p ipv6-icmp -m icmp6 --icmpv6-type 135 -j DROP\n");
-
         //Packets with same source and destination addresses
         if (current_wan_ip6addr[0] != '\0')
             fprintf(fp, "-A PREROUTING -i erouter0 -s %s -d %s -j DROP\n",current_wan_ip6addr, current_wan_ip6addr);
