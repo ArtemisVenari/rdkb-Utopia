@@ -12094,8 +12094,24 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
 #endif //_HUB4_PRODUCT_REQ_ ENDS
    fprintf(nat_fp, "-A POSTROUTING -o %s -j postrouting_tolan\n", lan_ifname);
    // Packet Forwarding Rules for IPTv Start
-   fprintf(nat_fp, "-A POSTROUTING -o veip0.34 -j MASQUERADE\n");
-   fprintf(nat_fp, "-A POSTROUTING -o eth0.34 -j MASQUERADE\n");
+   char Vlan_NumOfIfs[8]={0}, mcast_if[32] = {0},  wan_physical_if[24] = {0};
+   char vlan_name[32]={0}, vlan_id[16]={0}, vlan_iptv_id[8] = {0};
+   syscfg_get(NULL, "Vlan_NumOfIfs", Vlan_NumOfIfs, sizeof(Vlan_NumOfIfs));
+   if (atoi(Vlan_NumOfIfs) > 1){
+       for(int i=1; i <= atoi(Vlan_NumOfIfs); i++){
+           snprintf(vlan_name, sizeof(vlan_name), "Vlan_%d_Name", i);
+           memset(buf, 0, sizeof(buf));
+           syscfg_get(NULL, vlan_name, buf, sizeof(buf));
+           if (0 == strcmp("IPTV", buf)){
+               syscfg_get(NULL, "wan_physical_ifname", wan_physical_if, sizeof(wan_physical_if));
+               snprintf(vlan_id, sizeof(vlan_id), "Vlan_%d_ID", i);
+               syscfg_get(NULL, vlan_id, vlan_iptv_id, sizeof(vlan_iptv_id));
+               snprintf(mcast_if, sizeof(mcast_if), "%s.%s", wan_physical_if, vlan_iptv_id);
+               break;
+           }
+       }
+       fprintf(nat_fp, "-A POSTROUTING -o %s -j MASQUERADE\n", mcast_if);
+   }
    // Packet Forwarding Rules for IPTv End
    prepare_multinet_postrouting_nat(nat_fp);
    fprintf(nat_fp, "-A POSTROUTING -j postrouting_plugins\n");
@@ -12473,10 +12489,10 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(filter_fp, "-A FORWARD -i %s -o %s -j wan2lan\n", current_wan_ifname, lan_ifname);
    fprintf(filter_fp, "-A FORWARD -i %s -o %s -j lan2wan\n", lan_ifname, current_wan_ifname);
    // Packet Forwarding Rules for IPTv Start
-   fprintf(filter_fp, "-A FORWARD -i veip0.34 -o %s -j wan2lan\n", lan_ifname);
-   fprintf(filter_fp, "-A FORWARD -i %s -o veip0.34 -j lan2wan\n", lan_ifname);
-   fprintf(filter_fp, "-A FORWARD -i eth0.34 -o %s -j wan2lan\n", lan_ifname);
-   fprintf(filter_fp, "-A FORWARD -i %s -o eth0.34 -j lan2wan\n", lan_ifname);
+   if (atoi(Vlan_NumOfIfs) > 1){
+       fprintf(filter_fp, "-A FORWARD -i %s -o %s -j wan2lan\n", mcast_if, lan_ifname);
+       fprintf(filter_fp, "-A FORWARD -i %s -o %s -j lan2wan\n", lan_ifname, mcast_if);
+   }
    // Packet Forwarding Rules for IPTv End
    // need br0 to br0 for virtual services)
    fprintf(filter_fp, "-A FORWARD -i %s -o %s -j ACCEPT\n", lan_ifname, lan_ifname);
