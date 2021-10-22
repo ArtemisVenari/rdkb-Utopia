@@ -2410,7 +2410,7 @@ int main( int argc, char **argv )
                 sprintf( PartnerID, "%s", "RDKM");
 #else
                 //PartnerID is NULL so setting partnerID again as a recovery mechanism.
-                get_PartnerID ( PartnerID );
+                getPartnerIdWithRetry(buf,PartnerID);
                 APPLY_PRINT("%s - PartnerID is NULL so setting partnerID as :%s\n", __FUNCTION__, PartnerID );
 #endif
 		set_syscfg_partner_values( PartnerID, "PartnerID" );
