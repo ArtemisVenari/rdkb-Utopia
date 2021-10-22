@@ -2297,7 +2297,6 @@ int main( int argc, char **argv )
                 //PartnerID is NULL so setting partnerID again as a recovery mechanism.
                 get_PartnerID ( PartnerID );
                 APPLY_PRINT("%s - PartnerID is NULL so setting partnerID as :%s\n", __FUNCTION__, PartnerID );
-                v_secure_system("touch /nvram/.apply_partner_defaults");
 #endif
 		set_syscfg_partner_values( PartnerID, "PartnerID" );
 		APPLY_PRINT("%s - PartnerID is NULL so set default partner :%s\n", __FUNCTION__, PartnerID );		
