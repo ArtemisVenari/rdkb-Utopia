@@ -447,6 +447,7 @@ INT32 IGD_get_SpecificPortMapping_entry(INOUT struct action_event *event)
         ret = PAL_UPNP_SOAP_E_INVALID_ARGS;
         event->request->error_code = ret;
         strncpy(event->request->error_str, PAL_upnp_get_error_message(PAL_UPNP_SOAP_E_INVALID_ARGS), PAL_UPNP_LINE_SIZE);
+	PAL_xml2s_free(&portmapIndex, tableSpecPorMap);
     } else {
         bzero(&portmapEntry, sizeof(portmapEntry));
         if(portmapIndex.remoteHost != NULL)
@@ -592,6 +593,7 @@ INT32 IGD_add_PortMapping(INOUT struct action_event *event)
         ret = PAL_UPNP_SOAP_E_INVALID_ARGS;
         event->request->error_code = ret;
         strncpy(event->request->error_str, PAL_upnp_get_error_message(PAL_UPNP_SOAP_E_INVALID_ARGS), PAL_UPNP_LINE_SIZE);
+	PAL_xml2s_free(&portmapEntry, tableAddPorMap);
     } else {
         bzero(&pii_pmEntry, sizeof(pii_pmEntry));
 
@@ -752,6 +754,7 @@ INT32 IGD_delete_PortMapping(INOUT struct action_event *event)
         ret = PAL_UPNP_SOAP_E_INVALID_ARGS;
         event->request->error_code = ret;
         strncpy(event->request->error_str, PAL_upnp_get_error_message(PAL_UPNP_SOAP_E_INVALID_ARGS), PAL_UPNP_LINE_SIZE);
+	PAL_xml2s_free(&portmapIndex, tableDelPorMap);
     } else {
 
         ret = IGD_pii_del_portmapping_entry(pIndex->wan_device_index,
