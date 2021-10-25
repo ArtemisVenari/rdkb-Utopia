@@ -185,8 +185,10 @@ int getIfName(char *ifName, char *port)
 //TODO Move these to a common lib
 static int nethelper_bridgeCreate(char* brname) {
 
-   if (strcmp(brname,"brlan0") == 0) {
-        v_secure_system("/usr/sbin/lan_macassign.sh");
+   if ((strcmp(brname,"brlan0") == 0) || (strcmp(brname,"brlan1") == 0)) {
+       char cmdBuff[64];
+       snprintf(cmdBuff, sizeof(cmdBuff), "/usr/sbin/lan_macassign.sh %s", brname);
+       v_secure_system(cmdBuff);
     }
     else {
         char cmdBuff[80];
