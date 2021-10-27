@@ -1019,6 +1019,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
 #ifndef CISCO_CONFIG_DHCPV6_PREFIX_DELEGATION
 char cmd[100];
 char out[100];
+char temp[100];
 char interface_name[32] = {0};
 char *token = NULL; 
 char s[2] = ",";
@@ -1037,7 +1038,8 @@ if(!strncmp(out,"true",strlen(out)))
 	memset(out,0,sizeof(out));
 	memset(cmd,0,sizeof(cmd));
 	syscfg_get(NULL, "IPv6_Interface", out, sizeof(out));
-	pt = strdup(out);
+	strncpy(temp, out, sizeof(out));
+	pt = temp;
 	while((token = strtok_r(pt, ",", &pt)))
 	{
 
