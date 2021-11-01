@@ -6319,7 +6319,7 @@ static int remote_access_set_proto(FILE *filt_fp, FILE *nat_fp, const char *port
 		fprintf(filt_fp, "-A INPUT -i %s  -p tcp -m tcp --dport %s -d %s -j DROP\n", interface, port, IPv6 );
 		}
 #endif
-        fprintf(filt_fp, "-A wan2self_mgmt -i %s %s -p tcp -m tcp --dport %s -j ACCEPT\n", interface, src, port);
+        fprintf(filt_fp, "-A wan2self_mgmt -i %s %s -p tcp -m tcp --dport %s -j DROP\n", interface, src, port);
     }
          FIREWALL_DEBUG("Exiting remote_access_set_proto\n");    
     return 0;
@@ -6468,12 +6468,13 @@ static int do_remote_access_control(FILE *nat_fp, FILE *filter_fp, int family)
             rc |= syscfg_get(NULL, "mgmt_wan_srcend_ipv6", endip, sizeof(endip));
             if (rc != 0 || startip[0] == '\0' || endip[0] == '\0') {
                 noIPv6Entry = 1;
+                fprintf(filter_fp, "-A wan2self_mgmt -i erouter0 -p tcp -m tcp --dport %s -j DROP\n",bWAN_SSHPort);
             }
             else {
                 if (strcmp(startip, endip) == 0) {
-                    snprintf(srcaddr, sizeof(srcaddr), "-s %s", startip);
+                    snprintf(srcaddr, sizeof(srcaddr), "! -s %s", startip);
                 } else {
-                    snprintf(srcaddr, sizeof(srcaddr), "-m iprange --src-range %s-%s", startip, endip);
+                    snprintf(srcaddr, sizeof(srcaddr), "-m iprange ! --src-range %s-%s", startip, endip);
                 }
             }
         }
@@ -6628,6 +6629,8 @@ static int do_remote_access_control(FILE *nat_fp, FILE *filter_fp, int family)
    rc = syscfg_get(NULL, "mgmt_wan_sshaccess", query, sizeof(query));
    rc |= syscfg_get(NULL, "mgmt_wan_sshport", port, sizeof(port));
    if (rc == 0 && atoi(query) == 1) {
+       if(validEntry)
+           remote_access_set_proto(filter_fp, nat_fp, port, srcaddr, family, ecm_wan_ifname);
 
        for(i = 0; i < count && family == AF_INET && srcany == 0; i++)
            remote_access_set_proto(filter_fp, nat_fp, port, iprangeAddr[i], family, ecm_wan_ifname);
@@ -12390,7 +12393,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    if(bWAN_SSHAccess)
    {
            //ETH WAN is TC XB6 exclusive feature
-       fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j SSH_FILTER\n",bWAN_SSHPort);
+       fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j wan2self_mgmt\n",bWAN_SSHPort);
    }
 /*   else if (erouterSSHEnable)  // Applicable only for PUMA7 platforms
    {
@@ -13487,7 +13490,7 @@ static int prepare_disabled_ipv4_firewall(FILE *raw_fp, FILE *mangle_fp, FILE *n
    fprintf(filter_fp, "%s\n", ":SSH_FILTER - [0:0]");
    fprintf(filter_fp, "-A INPUT -i %s -p tcp -m tcp --dport 22 -j SSH_FILTER\n", ecm_wan_ifname);
 if (bWAN_SSHAccess){
-       fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j SSH_FILTER\n",bWAN_SSHPort);
+       fprintf(filter_fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j wan2self_mgmt\n",bWAN_SSHPort);
    }
    fprintf(filter_fp, "-A LOG_SSH_DROP -m limit --limit 1/minute -j LOG --log-level %d --log-prefix \"SSH Connection Blocked:\"\n",syslog_level);
    fprintf(filter_fp, "-A LOG_SSH_DROP -j DROP\n");
@@ -14221,7 +14224,7 @@ static void do_ipv6_filter_table(FILE *fp){
    fprintf(fp, "%s\n", ":SSH_FILTER - [0:0]");
    if(bWAN_SSHAccess)
    {
-   fprintf(fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j SSH_FILTER\n",bWAN_SSHPort);
+   fprintf(fp, "-A INPUT -i erouter0 -p tcp -m tcp --dport %s -j wan2self_mgmt\n",bWAN_SSHPort);
    }
 /*   else if (erouterSSHEnable)
    {
