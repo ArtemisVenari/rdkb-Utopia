@@ -5724,12 +5724,9 @@ static int port_scan_rules(FILE *fp)
          fprintf(fp, "-A portscan -m state --state NEW -m set ! --match-set scanned_ports src -d %s -m hashlimit --hashlimit-above 30/min --hashlimit-burst 20 --hashlimit-mode srcip --hashlimit-name portscan --hashlimit-htable-expire 4000 -j SET --add-set port_scanners src --exist\n", current_wan_ipaddr);
          fprintf(fp, "-A portscan -m state --state NEW -m set --match-set port_scanners src -d %s -m limit --limit 30/min --limit-burst 5 -j LOG --log-prefix \" PortScan Attack\"\n", current_wan_ipaddr);
      }
-     // Commenting port scan rules added for LAN n/w till proper rules are figured out.
-/*
-     fprintf(fp, "-A portscan -p tcp --match multiport ! --dports 53,80,443 -m state --state NEW -m set ! --match-set scanned_ports src -d %s -m hashlimit --hashlimit-above 30/min --hashlimit-burst 20 --hashlimit-mode srcip --hashlimit-name portscan --hashlimit-htable-expire 4000 -j SET --add-set port_scanners src --exist\n", lan_ipaddr);
-     fprintf(fp, "-A portscan -p udp --match multiport ! --dports 53,80,443 -m state --state NEW -m set ! --match-set scanned_ports src -d %s -m hashlimit --hashlimit-above 30/min --hashlimit-burst 20 --hashlimit-mode srcip --hashlimit-name portscan --hashlimit-htable-expire 4000 -j SET --add-set port_scanners src --exist\n", lan_ipaddr);
-     fprintf(fp, "-A portscan -m state --state NEW -m set --match-set port_scanners src -d %s -m limit --limit 60/min --limit-burst 5 -j LOG --log-prefix \" PortScan Attack\"\n", lan_ipaddr);
-*/
+     fprintf(fp, "-A portscan -p tcp --match multiport ! --dports 53,80,443,67,49152,49153,1900,161,1950 -m state --state NEW -m set ! --match-set scanned_ports src -d %s -m hashlimit --hashlimit-above 60/sec --hashlimit-burst 20 --hashlimit-mode srcip --hashlimit-name portscan --hashlimit-htable-expire 4000 -j SET --add-set port_scanners src --exist\n", lan_ipaddr);
+     fprintf(fp, "-A portscan -p udp --match multiport ! --dports 53,80,443,67,49152,49153,1900,161,1950 -m state --state NEW -m set ! --match-set scanned_ports src -d %s -m hashlimit --hashlimit-above 60/sec --hashlimit-burst 20 --hashlimit-mode srcip --hashlimit-name portscan --hashlimit-htable-expire 4000 -j SET --add-set port_scanners src --exist\n", lan_ipaddr);
+     fprintf(fp, "-A portscan -m state --state NEW -m set --match-set port_scanners src -d %s -m limit --limit 60/sec --limit-burst 5 -j LOG --log-prefix \" PortScan Attack\"\n", lan_ipaddr);
 
      if (isWanReady) {
          fprintf(fp, "-A portscan -m state --state NEW -m set --match-set port_scanners src -j DROP\n");
