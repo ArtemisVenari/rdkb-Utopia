@@ -12096,6 +12096,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    // Packet Forwarding Rules for IPTv Start
    char Vlan_NumOfIfs[8]={0}, mcast_if[32] = {0},  wan_physical_if[24] = {0};
    char vlan_name[32]={0}, vlan_id[16]={0}, vlan_iptv_id[8] = {0};
+   char buf[32]={0};
    syscfg_get(NULL, "Vlan_NumOfIfs", Vlan_NumOfIfs, sizeof(Vlan_NumOfIfs));
    if (atoi(Vlan_NumOfIfs) > 1){
        for(int i=1; i <= atoi(Vlan_NumOfIfs); i++){
