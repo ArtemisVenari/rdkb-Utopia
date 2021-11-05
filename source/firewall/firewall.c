@@ -11681,7 +11681,6 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
    char DSCPMark[16] = {0};
    char markingList[75] ={0};
    const char *psmList = "dmsb.wanmanager.if.1.Marking.List";
-   const char *wanIfName = "dmsb.wanmanager.if.1.Name";
    int vlanCount = 1;
    int vlanID = 0;
    char TmpList[75] = {0};
@@ -11691,10 +11690,7 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
    int primary_Vlan_ID = 0;
    int numVlanIfc = 0;
 
-   char PartnerID[32] = {0};
    int dest_port = 0;
-
-   syscfg_get(NULL, "PartnerID", PartnerID, sizeof(PartnerID));
 
    syscfg_get(NULL, "Vlan_NumOfIfs", buf, sizeof(buf));
    numVlanIfc = atoi(buf);
@@ -11705,13 +11701,8 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
    memset(buf, 0, sizeof(buf));
 
    if(bus_handle != NULL) {
-       retPsmGet = PSM_VALUE_GET_STRING(wanIfName, strValue);
-       if(retPsmGet == CCSP_SUCCESS && strValue != NULL) { // Get WAN interface Name
-           strncpy(wanInterface, strValue, sizeof(wanInterface));
-           Ansc_FreeMemory_Callback(strValue);
-           strValue = NULL;
-       }
 
+       syscfg_get(NULL, "wan_physical_ifname", wanInterface, sizeof(wanInterface));
        retPsmGet = PSM_VALUE_GET_STRING(psmList, strValue);
        if(retPsmGet == CCSP_SUCCESS && strValue != NULL)
        {
@@ -11746,7 +11737,7 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
            }
 
            memset(psmEntry, 0, sizeof(psmEntry));
-           if(strcmp(PartnerID, "telekom-dev") == 0 || strcmp(PartnerID, "telekom-hu") == 0) { // Qos Rules based on VLAN for EU
+           if(numVlanIfc > 1) { // Qos Rules for multi VLAN case
                if(vlanID == primary_Vlan_ID) {
                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o erouter0 --set-dscp-class %s\n", DSCPMark);
                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o erouter0 --set-class 0:%s\n", SKBMark);
@@ -11757,7 +11748,7 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
                }
                vlanCount++ ;
             }
-           else if(strcmp(PartnerID, "telekom-de") == 0 || strcmp(PartnerID, "telekom-de-test") == 0) { // Qos Rules based on service for TDG
+           else { // Qos Rules for single VLAN case
                if (strcmp(token, "NTP") == 0) {
                    dest_port = 123; // for NTP
                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
@@ -11885,10 +11876,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
 #endif
    prepare_lnf_internet_rules(mangle_fp,4);
    prepare_xconf_rules(mangle_fp);
-   char buf[32] = {0};
-   syscfg_get(NULL, "PartnerID", buf, sizeof(buf));
-   if (strcmp(buf, "telekom-dev") == 0 || strcmp(buf, "telekom-hu") == 0 || strcmp(buf, "telekom-de") == 0 || strcmp(buf, "telekom-de-test") == 0)
-       add_qos_skb_mark(mangle_fp, AF_INET);
+   add_qos_skb_mark(mangle_fp, AF_INET);
 
 #ifdef CONFIG_BUILD_TRIGGER
 #ifndef CONFIG_KERNEL_NF_TRIGGER_SUPPORT
@@ -13685,10 +13673,7 @@ static void do_ipv6_sn_filter(FILE* fp) {
 #if !defined(_PLATFORM_IPQ_)
         prepare_xconf_rules(fp);
 #endif
-       memset(buf, 0, sizeof(buf));
-       syscfg_get(NULL, "PartnerID", buf, sizeof(buf));
-       if (strcmp(buf, "telekom-dev") == 0 || strcmp(buf, "telekom-hu") == 0 || strcmp(buf, "telekom-de") == 0 || strcmp(buf, "telekom-de-test") == 0)
-           add_qos_skb_mark(fp, AF_INET6);
+        add_qos_skb_mark(fp, AF_INET6);
 
 #ifdef _COSA_INTEL_XB3_ARM_
         fprintf(fp, "-A PREROUTING -i %s -p tcp -m tcp ! --tcp-flags FIN,SYN,RST,ACK SYN -m conntrack --ctstate NEW -j DROP\n",current_wan_ifname);
