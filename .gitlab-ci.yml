@@ -7,5 +7,5 @@ bridge:
     BUILD_TARGETS: build-broadcom,build-cujo
   trigger:
     project: rdk-factory/software-stack/rdkb
-    branch: feature/TCON20-6230-update-all-git-repositories
+    branch: master
     strategy: depend
