@@ -13647,6 +13647,9 @@ static void do_ipv6_sn_filter(FILE* fp) {
         if (current_wan_ip6addr[0] != '\0')
             fprintf(fp, "-A PREROUTING -i erouter0 -s %s -d %s -j DROP\n",current_wan_ip6addr, current_wan_ip6addr);
 
+        // Accept GRE
+        fprintf(fp, "-I PREROUTING -i erouter0 -p gre -j ACCEPT\n");
+
         // Invalid Packets
         fprintf(fp, "-A PREROUTING -i erouter0 -m state --state INVALID  -j DROP\n");
 
@@ -14740,6 +14743,9 @@ v6GPFirewallRuleNext:
       // ICMP messages for MIPv6 (assuming mobile node on the inside)
       fprintf(fp, "-A FORWARD -p icmpv6 -m icmp6 --icmpv6-type 145 -m limit --limit 100/sec -j ACCEPT\n");
       fprintf(fp, "-A FORWARD -p icmpv6 -m icmp6 --icmpv6-type 147 -m limit --limit 100/sec -j ACCEPT\n");
+
+      // Accept GRE
+      fprintf(fp, "-I wan2lan -p gre -j ACCEPT\n");
 
       // Traffic WAN to LAN
 
