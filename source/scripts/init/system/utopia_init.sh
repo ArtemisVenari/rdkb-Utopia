@@ -456,6 +456,14 @@ fi
       rm -f "$HOTSPOT_BLOB"
    fi
 
+   if [ -e $SYSCFG_MOUNT/procanalyzerconfig.ini ]; then
+      rm $SYSCFG_MOUNT/procanalyzerconfig.ini
+   fi
+
+   if [ -e $SYSCFG_MOUNT/processes.list ]; then
+       rm $SYSCFG_MOUNT/processes.list
+   fi
+
    # Remove lxy L2 dir
    LOG_FILE=/rdklogs/logs/lxy.log
    echo_t "[FR] Removing lxy L2 Dir" >> $LOG_FILE
@@ -964,3 +972,13 @@ fi
 
 #####guest_ebtable.sh is called ##############
 /etc/utopia/service.d/guest_ebtable.sh
+
+####copy procanalyzerconfig.ini from etc to nvram###
+if [ ! -e $SYSCFG_MOUNT/procanalyzerconfig.ini ]; then
+    cp /etc/procanalyzerconfig.ini $SYSCFG_MOUNT/procanalyzerconfig.ini
+fi
+
+###copy processes.list from etc to nvram###
+if [ ! -e $SYSCFG_MOUNT/processes.list ]; then
+    cp /etc/processes.list $SYSCFG_MOUNT/processes.list
+fi
