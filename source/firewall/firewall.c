@@ -14405,6 +14405,7 @@ static void do_ipv6_filter_table(FILE *fp){
 
       // established communication from anywhere is accepted
       fprintf(fp, "-A wan2self -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+      fprintf(fp, "-A wan2self -j DROP\n");
 
 #if defined(_COSA_BCM_MIPS_)
       fprintf(fp, "-A INPUT -m physdev --physdev-in %s -j ACCEPT\n", emta_wan_ifname);
