@@ -70,7 +70,6 @@
 #define RIPD_PID_FILE   "/var/ripd.pid"
 #define ZEBRA_CONF_FILE "/var/zebra.conf"
 #define RIPD_CONF_FILE  "/etc/ripd.conf"
-#define RA_INTERVAL 60
 
 #ifdef _HUB4_PRODUCT_REQ_
 #define LAN_BRIDGE "brlan0"
@@ -978,7 +977,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
                             fprintf(fp, "   ipv6 nd rdnss %s 86400\n", tok);
                         }
 #else
-                       rdnsslft = 3*RA_INTERVAL;
+                       rdnsslft = 3* atoi(ra_interval);
                        fprintf(fp, "   ipv6 nd rdnss %s %d\n", tok, rdnsslft);
 #endif
                 }
