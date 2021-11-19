@@ -31,9 +31,8 @@ AM_LDFLAGS =  -lpthread -lz -lccsp_common $(DBUS_LIBS) -lcjson \
 		-ltelemetry_msgsender
 if PLATFORM_HAL_SYNDICATION
 AM_LDFLAGS += "-lhal_platform -lsysevent -lutctx -lutapi -lhal_wifi" 
-endif
-
+else
 AM_LDFLAGS += "-lhal_platform"
-
+endif
 
 apply_system_defaults_SOURCES = msg_bus.c apply_system_defaults.c

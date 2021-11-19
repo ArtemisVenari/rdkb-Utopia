@@ -49,6 +49,7 @@
 #include <arpa/inet.h>
 #include <syscfg/syscfg.h>
 #include "sysevent/sysevent.h"
+#include "safec_lib_common.h"
 #if defined (_XB6_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_) || defined(_SR300_PRODUCT_REQ_) || defined(_DT_WAN_Manager_Enable_)
 #include "platform_hal.h"
 #endif
@@ -64,6 +65,11 @@
 #define PARTNER_DEFAULT_MIGRATE_PSM  					"/tmp/.apply_partner_defaults_psm"
 #define PARTNER_DEFAULT_MIGRATE_FOR_NEW_PSM_MEMBER  	"/tmp/.apply_partner_defaults_new_psm_member"
 #define PARTNER_ID_LEN 64
+
+#if defined(_DT_WAN_Manager_Enable_)
+
+#define MAX_VALUESTR_LEN 1024
+#endif
 
 static char default_file[1024];
 
@@ -102,11 +108,13 @@ token_t global_id;
 /* Function Prototypes */
 int IsValuePresentinSyscfgDB( char *param );
 
+#if defined(_DT_WAN_Manager_Enable_)
 /* Function - dbus initialization  */
 extern int dbusInit(void);
 
 /* Function - PSM SET API*/
 extern int set_psm_record(char *name,char *str);
+#endif
 
 /*
  * Procedure     : trim
@@ -635,12 +643,14 @@ int IsValuePresentinSyscfgDB( char *param )
 
 	return 1;
 }
+#if defined(_DT_WAN_Manager_Enable_)
 int set_psm_partner_values(char *pValue,char *param)
 {
        // PSM SET API calls
        set_psm_record(param,pValue);
        return 0;
 }
+#endif
 
 
 int set_syscfg_partner_values(char *pValue,char *param)
@@ -1463,9 +1473,11 @@ int compare_partner_json_param(char *partner_nvram_bs_obj,char *partner_etc_obj,
             //printf("value_bs = %s, source_bs = %s\n", value_bs, source_bs);
             if (strcmp(value, value_bs))
             {
+#if defined(_DT_WAN_Manager_Enable_)
                // Take backup of current default value before replacing it on json file
-               char old_value_bs[256] = {0};
-               strcpy(old_value_bs, value_bs);
+               char old_value_bs[MAX_VALUESTR_LEN] = {0};
+               strcpy_s(old_value_bs, MAX_VALUESTR_LEN, value_bs);
+#endif
 
                APPLY_PRINT("** Param %s value changed in firmware **\n", key);
                cJSON_ReplaceItemInObject(bs_obj,"DefaultValue", cJSON_CreateString(value));
@@ -1629,62 +1641,62 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
 			{
 				isThisComcastPartner = 1;
 			}
-				
+			
                        partnerObj = cJSON_GetObjectItem(json, PartnerID);
                        if(partnerObj != NULL)
 			{
-                            if(0 != strstr(PartnerID, "telekom"))
+#if defined(_DT_WAN_Manager_Enable_)	
+
+                            cJSON *param = partnerObj->child;
+                            char *key = NULL;
+                            char *value = NULL;
+                            unsigned char buf[128] = {0};
+                            cJSON *paramObjVal = NULL;
+                            while( param )
                             {
-                                cJSON *param = partnerObj->child;
-                                char *key = NULL;
-                                char *value = NULL;
-                                unsigned char buf[128] = {0};
-                                cJSON *paramObjVal = NULL;
-                                while( param )
+                                unsigned int i = 0;
+                                static const char* encrypted_keys[] = {
+                                    "wan_proto_username",
+                                    "wan_proto_password",
+                                    "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password",
+                                    "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword",
+                                };
+
+                                key = param->string;
+                                cJSON * value_obj = cJSON_GetObjectItem(partnerObj, key);
+                                paramObjVal = cJSON_GetObjectItem(value_obj, "ActiveValue");
+                                if(paramObjVal)
+                                    value = paramObjVal->valuestring;
+
+                                for (i = 0; i < (sizeof(encrypted_keys)/sizeof(*encrypted_keys)); i++)
                                 {
-                                    static const char* encrypted_keys[] = {
-                                        "wan_proto_username",
-                                        "wan_proto_password",
-                                        "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password",
-                                        "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword",
-                                    };
-                                    unsigned i;
-
-                                    key = param->string;
-                                    cJSON * value_obj = cJSON_GetObjectItem(partnerObj, key);
-                                    paramObjVal = cJSON_GetObjectItem(value_obj, "ActiveValue");
-                                    if(paramObjVal)
-                                        value = paramObjVal->valuestring;
-
-                                    for (i = 0; i < (sizeof(encrypted_keys)/sizeof(*encrypted_keys)); i++)
+                                    if (!strcmp(key, encrypted_keys[i]))
                                     {
-                                        if (!strcmp(key, encrypted_keys[i]))
-                                        {
-                                            if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf))) {
-                                                APPLY_PRINT("Error in decryption of %s\n", key);
-                                                memset(value, 0, sizeof(value));
-                                            } else {
-                                                strncpy(value, buf, sizeof(buf));
-                                            }
-                                            break;
+                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf))) {
+                                            APPLY_PRINT("Error in decryption of %s\n", key);
+                                            memset(value, 0, sizeof(value));
+                                        } else {
+                                            strncpy(value, buf, sizeof(buf));
                                         }
+                                        break;
                                     }
-
-                                    if (0 != strstr (key, "dmsb."))
-                                    {
-                                        //Its PSM entry
-                                        APPLY_PRINT("Update psm value %s for param %s\n", value, key);
-                                        set_psm_partner_values(value, key);
-                                    }
-                                    else
-                                    {
-                                        //Its SYSCFG entry
-                                        APPLY_PRINT("Update SYSCFG value %s for param %s\n", value, key);
-                                        set_syscfg_partner_values(value, key);
-                                    }
-                                    param = param->next;
                                 }
+
+                                if (0 != strstr (key, "dmsb."))
+                                {
+                                    //Its PSM entry
+                                    APPLY_PRINT("Update psm value %s for param %s\n", value, key);
+                                    set_psm_partner_values(value, key);
+                                }
+                                else
+                                {
+                                    //Its SYSCFG entry
+                                    APPLY_PRINT("Update SYSCFG value %s for param %s\n", value, key);
+                                    set_syscfg_partner_values(value, key);
+                                }
+                                param = param->next;
                             }
+#endif
 
 				// Don't overwrite this value into syscfg.db for comcast partner
 				if( ( 0 == isThisComcastPartner ) && \
@@ -2343,8 +2355,9 @@ int main( int argc, char **argv )
 	
    }
 
-
+#if defined(_DT_WAN_Manager_Enable_)
    dbusInit();
+#endif
 
    set_defaults();
    
