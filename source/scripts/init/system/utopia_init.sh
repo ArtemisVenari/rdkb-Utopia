@@ -874,14 +874,6 @@ fi
 
 syscfg commit
 
-source /lib/rdk/getpartnerid.sh
-partnerId=$(getPartnerId)
-if [ "$partnerId" = "telekom-hu" ]; then
-       cp /usr/share/ca-certificates/ca-crl-hu.pem /etc/ssl/certs/ca_crl.crt
-else
-       cp /usr/share/ca-certificates/ca-crl-dev.pem /etc/ssl/certs/ca_crl.crt
-fi
-
 #ifdef CISCO_XB3_PLATFORM_CHANGES
 ## Remove after setting last reboot reason
 if [ -f "/nvram/RDKB3939-500_RebootNotByPwrOff" ]; then
