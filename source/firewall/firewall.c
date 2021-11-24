@@ -14405,7 +14405,11 @@ static void do_ipv6_filter_table(FILE *fp){
 
       // established communication from anywhere is accepted
       fprintf(fp, "-A wan2self -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
-      fprintf(fp, "-A wan2self -j DROP\n");
+       //dhcpv6 and ntp packets are accepted
+      fprintf(fp, "-A wan2self -p udp --dport 546 -j ACCEPT\n");
+      fprintf(fp, "-A wan2self -p udp --dport 123 -j ACCEPT\n");
+      fprintf(fp, "-A wan2self -p tcp -j DROP\n");
+      fprintf(fp, "-A wan2self -p udp -j DROP\n");
 
 #if defined(_COSA_BCM_MIPS_)
       fprintf(fp, "-A INPUT -m physdev --physdev-in %s -j ACCEPT\n", emta_wan_ifname);
