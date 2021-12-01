@@ -1241,10 +1241,20 @@ static int radv_start(struct serv_routed *sr)
      * since restarting zebra will leads clear the current zebra counter.
      * So we send SIGUSR1 to zebra to notify 'read the updated zebra.conf'
      */
+    char wan_restarted[10], prefix_updated[10] ;
     int pid = is_daemon_running(ZEBRA_PID_FILE, "zebra");
     if(pid)
     {
-        kill(pid, SIGUSR1);
+        sysevent_get(sr->sefd, sr->setok, "WAN_RESTARTED", wan_restarted, sizeof(wan_restarted));
+        sysevent_get(sr->sefd, sr->setok, "PREFIX_UPDATED", prefix_updated, sizeof(prefix_updated));
+        if((strcmp(wan_restarted,"true") == 0) || (strcmp(prefix_updated,"true")== 0)){
+                sysevent_set(sr->sefd, sr->setok, "WAN_RESTARTED", "false" , 0);
+                sysevent_set(sr->sefd, sr->setok,"PREFIX_UPDATED", "false", 0);
+                kill(pid, SIGUSR2);
+        }
+        else{
+                kill(pid, SIGUSR1);
+        }
         return 0;
     }
     daemon_stop(ZEBRA_PID_FILE, "zebra");
