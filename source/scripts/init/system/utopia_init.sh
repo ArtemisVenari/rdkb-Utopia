@@ -346,6 +346,7 @@ fi
 
 if [ "$BOX_TYPE" == "TCH" -o "$BOX_TYPE" = "SGC" ]; then
     ethswctl -c wan -i eth0 -o enable
+    ethswctl -c softswitch -i eth0 -o enable
 fi
 
 SYSCFG_LAN_DOMAIN=`syscfg get lan_domain` 
