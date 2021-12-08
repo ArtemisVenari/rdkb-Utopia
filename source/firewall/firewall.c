@@ -9892,6 +9892,8 @@ static int do_lan2wan_helpers(FILE *raw_fp)
    FIREWALL_DEBUG("Entering do_lan2wan_helpers\n");
    /* Allow FTP passthrough to work */
    fprintf(raw_fp, "-A lan2wan_helpers -p tcp --dport 21 -j CT --helper ftp\n");
+   /* Allow TFTP passthrough to work */
+   fprintf(raw_fp, "-A lan2wan_helpers -p udp --dport 69 -j CT --helper tftp\n");
  
 #if defined(CONFIG_CCSP_VPN_PASSTHROUGH)
    char query[2] = {'\0'};
