@@ -9950,7 +9950,7 @@ static int do_lan2wan_misc(FILE *filter_fp)
       }
    }
 
-#if defined(CONFIG_CCSP_VPN_PASSTHROUGH) || defined (_COSA_BCM_ARM_)
+#if defined(CONFIG_CCSP_VPN_PASSTHROUGH)
    char query[10] = {'\0'};
 
  if(isWanReady)
@@ -14904,7 +14904,7 @@ v6GPFirewallRuleNext:
 
    }
 
-#if defined(CONFIG_CCSP_VPN_PASSTHROUGH) || defined (_COSA_BCM_ARM_)
+#if defined(CONFIG_CCSP_VPN_PASSTHROUGH) 
 
     char queryv6[10] = {'\0'};
     if((0==syscfg_get(NULL, "blockipsec::result", queryv6 , sizeof(queryv6))) && strcmp(queryv6,"$ACCEPT") == 0){
