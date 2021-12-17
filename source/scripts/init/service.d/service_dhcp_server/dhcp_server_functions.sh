@@ -875,6 +875,13 @@ fi
 
        fi
 
+      product_name=`dmcli eRT getv Device.DeviceInfo.ModelName | grep -w value: | awk '{print$5}' | sed 's/^ *//g'`
+      fmw_version=`dmcli eRT getv Device.DeviceInfo.SoftwareVersion |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'`
+      SERVER_NAME=`echo $product_name\_$fmw_version`
+      if [ "" != "$SERVER_NAME" ] ; then
+      echo "server-name=$SERVER_NAME" >> $LOCAL_DHCP_CONF
+      fi
+
       # if we are provisioned to use the wan domain name, the we do so
       # otherwise we use the lan domain name
       if grep "domain=" $LOCAL_DHCP_CONF >/dev/null
