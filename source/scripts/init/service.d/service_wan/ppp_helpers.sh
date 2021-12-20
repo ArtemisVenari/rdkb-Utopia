@@ -336,6 +336,17 @@ prepare_pppd_options() {
    echo "lock" >> $PPP_OPTIONS_FILE
    echo "debug" >> $PPP_OPTIONS_FILE
    echo "maxauthreq $MAXAUTHREQ" >> $PPP_OPTIONS_FILE
+   echo "lcp-burst-algo 1" >> $PPP_OPTIONS_FILE
+   echo "lcp-max-configure 6" >> $PPP_OPTIONS_FILE
+   echo "lcp-restart 1" >> $PPP_OPTIONS_FILE
+
+   echo "ipcp-burst-algo 1" >> $PPP_OPTIONS_FILE
+   echo "ipcp-max-configure 6" >> $PPP_OPTIONS_FILE
+   echo "ipcp-restart 1" >> $PPP_OPTIONS_FILE
+
+   echo "ipv6cp-burst-algo 1" >> $PPP_OPTIONS_FILE
+   echo "ipv6cp-max-configure 6" >> $PPP_OPTIONS_FILE
+   echo "ipv6cp-restart 1" >> $PPP_OPTIONS_FILE
    echo "ifname erouter0" >> $PPP_OPTIONS_FILE
 }
 
