@@ -13666,10 +13666,10 @@ static int prepare_stopped_ipv4_firewall(FILE *file_fp)
 }
 
 //Hardcoded support for cm and erouter should be generalized.
-#ifdef _HUB4_PRODUCT_REQ_
-static char * ifnames[] = { wan6_ifname };
+#if defined(_HUB4_PRODUCT_REQ_) || defined(_TELCO_PRODUCT_REQ_)
+static char * ifnames[] = { wan6_ifname, lan_ifname };
 #else
-static char * ifnames[] = { lan_ifname, ecm_wan_ifname, emta_wan_ifname};
+static char * ifnames[] = { wan6_ifname, ecm_wan_ifname, emta_wan_ifname};
 #endif /* * _HUB4_PRODUCT_REQ_ */
 static int numifs = sizeof(ifnames) / sizeof(*ifnames);
 /*----*/
