@@ -11711,7 +11711,8 @@ static int mark_dedicated_routing_tables(FILE *mangle_fp)
            snprintf(buf, sizeof(buf), "Vlan_%d_ROUTE_ID", vlanCount);
            syscfg_get(NULL, buf, vlanRouteID, sizeof(vlanRouteID));
            memset(buf, 0, sizeof(buf));
-           fprintf(mangle_fp, "-A OUTPUT -d %s/%s -j MARK --set-mark 0x%s\n", ip, subnet, vlanRouteID);
+           if (ip[0] != '\0' && subnet[0] != '\0')
+               fprintf(mangle_fp, "-A OUTPUT -d %s/%s -j MARK --set-mark 0x%s\n", ip, subnet, vlanRouteID);
        }
    }
    return 0;
