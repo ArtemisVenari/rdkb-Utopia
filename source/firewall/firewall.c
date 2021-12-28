@@ -11721,13 +11721,20 @@ static int mark_dedicated_routing_tables(FILE *mangle_fp)
 static int add_qos_skb_mark(FILE *mangle_fp, int family)
 {
    int retPsmGet = CCSP_SUCCESS;
+   int retPsmlist = CCSP_SUCCESS;
    char *strValue = NULL;
+   char *listValue = NULL;
+   char *activeValue = NULL;
+   char *wancount = NULL;
    char psmEntry[512] = {0};
+   char psmEntry2[512] = {0};
    char wanInterface[32] = {0};
    char SKBMark[32] = {0};
    char DSCPMark[16] = {0};
    char markingList[75] ={0};
    const char *psmList = "dmsb.wanmanager.if.1.Marking.List";
+   const char *wanifcount = "dmsb.wanmanager.wanifcount";
+   int wanif_count = 0;
    int vlanCount = 1;
    int vlanID = 0;
    char TmpList[75] = {0};
@@ -11750,13 +11757,47 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
    if(bus_handle != NULL) {
 
        syscfg_get(NULL, "wan_physical_ifname", wanInterface, sizeof(wanInterface));
-       retPsmGet = PSM_VALUE_GET_STRING(psmList, strValue);
-       if(retPsmGet == CCSP_SUCCESS && strValue != NULL)
+       retPsmGet = PSM_VALUE_GET_STRING(wanifcount, wancount);
+       if(retPsmGet == CCSP_SUCCESS && wancount != NULL) {
+              wanif_count = atoi(wancount);
+              Ansc_FreeMemory_Callback(wancount);
+              wancount = NULL;
+       }
+       for(int i=1;i <= wanif_count;i++)
        {
-           strncpy(markingList, strValue, sizeof(markingList));
+           snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.%d.ActiveLink", i);
+           retPsmGet = PSM_VALUE_GET_STRING(psmEntry, activeValue);
+           if(retPsmGet == CCSP_SUCCESS && activeValue != NULL) {
+
+            memset(psmEntry, 0, sizeof(psmEntry));
+            memset(psmEntry2, 0, sizeof(psmEntry));
+
+                if(strcmp(activeValue, "TRUE") == 0){
+
+                        snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.%d.Name", i);
+                        snprintf(psmEntry2, sizeof(psmEntry2), "dmsb.wanmanager.if.%d.Marking.List",i);
+                        retPsmGet = PSM_VALUE_GET_STRING(psmEntry, strValue);
+                        retPsmlist =  PSM_VALUE_GET_STRING(psmEntry2, listValue);
+                        break;
+                }
+          }
+        }
+
+       
+       if(retPsmGet == CCSP_SUCCESS && strValue != NULL) { // Get WAN interface Name
+           memset(wanInterface, 0, sizeof(wanInterface));
+           strncpy(wanInterface, strValue, sizeof(wanInterface));
            Ansc_FreeMemory_Callback(strValue);
            strValue = NULL;
+        }
+
+       if(retPsmlist == CCSP_SUCCESS && listValue != NULL)
+       {
+           strncpy(markingList, listValue, sizeof(markingList));
+           Ansc_FreeMemory_Callback(listValue);
+           listValue = NULL;
        }
+
        snprintf( TmpList, sizeof( TmpList ), markingList );
        token = strtok( TmpList, "-" );
        while ( token != NULL && vlanCount <= numVlanIfc )
@@ -11767,23 +11808,48 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
            memset(buf, 0, sizeof(buf));
            memset(syscfgEntry, 0, sizeof(syscfgEntry));
 
-           snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.1.Marking.%s.SKBMark", token);
+           memset(psmEntry, 0, sizeof(psmEntry));
+           memset(psmEntry2, 0, sizeof(psmEntry2));
+
+            for(int i=1;i <= wanif_count;i++)
+            {
+                snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.%d.ActiveLink", i);
+                retPsmGet = PSM_VALUE_GET_STRING(psmEntry, activeValue);
+                if(retPsmGet == CCSP_SUCCESS && activeValue != NULL) {
+
+                        memset(psmEntry, 0, sizeof(psmEntry));
+                        memset(psmEntry2, 0, sizeof(psmEntry));
+
+                        if(strcmp(activeValue, "TRUE") == 0){
+                                snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.%d.Marking.%s.SKBMark",i ,token);
+                                snprintf(psmEntry2, sizeof(psmEntry2), "dmsb.wanmanager.if.%d.Marking.%s.DSCPMark",i, token);
+                                break;
+                        }
+
+                 }
+            }
+
+
+            if(wanif_count == 1)
+            {
+                    snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.1.Marking.%s.SKBMark",token);
+                    snprintf(psmEntry2, sizeof(psmEntry2), "dmsb.wanmanager.if.1.Marking.%s.DSCPMark", token);
+            }
+
+
            retPsmGet = PSM_VALUE_GET_STRING(psmEntry, strValue);
            if(retPsmGet == CCSP_SUCCESS && strValue != NULL) { // Get SKB Mark associated with the interface
                strncpy(SKBMark, strValue, sizeof(SKBMark));
                Ansc_FreeMemory_Callback(strValue);
                strValue = NULL;
            }
-           memset(psmEntry, 0, sizeof(psmEntry));
-           snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.1.Marking.%s.DSCPMark", token);
-           retPsmGet = PSM_VALUE_GET_STRING(psmEntry, strValue);
+           retPsmGet = PSM_VALUE_GET_STRING(psmEntry2, strValue);
            if(retPsmGet == CCSP_SUCCESS && strValue != NULL) { // Get DSCP Mark associated with the interface
                strncpy(DSCPMark, strValue, sizeof(DSCPMark));
                Ansc_FreeMemory_Callback(strValue);
                strValue = NULL;
            }
 
-           memset(psmEntry, 0, sizeof(psmEntry));
            if(numVlanIfc > 1) { // Qos Rules for multi VLAN case
                if(vlanID == primary_Vlan_ID) {
                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o erouter0 --set-dscp-class %s\n", DSCPMark);
