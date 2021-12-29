@@ -344,9 +344,16 @@ else
    echo 204 > /var/tmp/networkresponse.txt
 fi
 
-if [ "$BOX_TYPE" == "TCH" -o "$BOX_TYPE" = "SGC" ]; then
+# model check and ethswctl commands execution
+model=`grep "imagename" /version.txt | awk -F'_v' '{print $1}' | awk -F':' '{print $2}'`
+if [ "$model" = "FAST5386" ]; then
+    # Need to revisit once RDKSGC-72 is completed.
     ethswctl -c wan -i eth0 -o enable
+fi
+if [ "$model" == "DGA4333" -o "$model" = "FAST5386" ]; then
     ethswctl -c softswitch -i eth0 -o enable
+elif [ "$model" == "FGA2233" -o "$model" = "FAST5670DT" ]; then
+    ethswctl -c softswitch -i eth4 -o enable
 fi
 
 SYSCFG_LAN_DOMAIN=`syscfg get lan_domain` 
