@@ -940,6 +940,12 @@ fi
     #  echo "$PREFIX""log-dhcp" >> $LOCAL_DHCP_CONF
    #fi
 
+   #Option for parsing STB vendor class
+   partner_id="$(syscfg get PartnerID)"
+   if [ "$partner_id" = "telekom-hr" ]; then
+       echo "dhcp-vendorclass=set:media,HT_STB" >> $LOCAL_DHCP_CONF
+   fi
+
    #Option for parsing plume vendor code
    if [ "$BOX_TYPE" = "XB6" ]; then
     if [ "$BOX_TYPE" != "TG3482G" ]; then
