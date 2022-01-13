@@ -351,6 +351,7 @@ if [ "$model" = "FAST5386" ]; then
     ethswctl -c wan -i eth0 -o enable
 fi
 if [ "$model" == "DGA4333" -o "$model" = "FAST5386" ]; then
+    ethswctl -c wan -i eth0 -o enable
     ethswctl -c softswitch -i eth0 -o enable
 elif [ "$model" == "FGA2233" -o "$model" = "FAST5670DT" ]; then
     ethswctl -c softswitch -i eth4 -o enable
