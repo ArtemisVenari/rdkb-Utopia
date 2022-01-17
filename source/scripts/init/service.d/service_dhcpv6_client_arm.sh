@@ -168,8 +168,11 @@ service_stop()
         fi
  	fi
     else
+            if ([ "$BOX_TYPE" != "TCH" ] && [ "$BOX_TYPE" != "SGC" ])
+            then
 		$DHCPV6_BINARY stop
                 rm -f $DHCPV6_PID_FILE
+            fi   
     fi
 }
 
