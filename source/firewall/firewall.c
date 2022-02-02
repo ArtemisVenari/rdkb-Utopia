@@ -5636,12 +5636,12 @@ static int lan_telnet_ssh(FILE *fp, int family)
 
        if(family == AF_INET6) {
            if(!isBridgeMode) //brlan0 exists
-               fprintf(fp, "-A %s -i %s -p tcp -m tcp --dport 22 -j ACCEPT\n", "INPUT", lan_ifname);
+               fprintf(fp, "-A %s -i %s -p tcp -m tcp --dport %s -j ACCEPT\n", "INPUT", lan_ifname, bWAN_SSHPort);
 
-           fprintf(fp, "-A %s -i %s -p tcp -m tcp --dport 22 -j ACCEPT\n", "INPUT", cmdiag_ifname); //lan0 always exist
+           fprintf(fp, "-A %s -i %s -p tcp -m tcp --dport %s -j ACCEPT\n", "INPUT", cmdiag_ifname, bWAN_SSHPort); //lan0 always exist
        }
        else {
-           fprintf(fp, "-A %s -p tcp -m tcp --dport 22 -j ACCEPT\n", "lan2self_mgmt");
+           fprintf(fp, "-A %s -p tcp -m tcp --dport %s -j ACCEPT\n", "lan2self_mgmt", bWAN_SSHPort);
        }
    }
 #ifdef _HUB4_PRODUCT_REQ_
