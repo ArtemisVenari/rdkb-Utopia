@@ -1006,7 +1006,48 @@ static int gen_zebra_conf(int sefd, token_t setok)
 
 
 		}
-	}
+	} else {
+
+                fprintf(fp, "interface %s\n", lan_if);
+                fprintf(fp, "   no ipv6 nd suppress-ra\n");
+
+                fprintf(fp, "   ipv6 nd ra-interval %d\n",RA_INTERVAL); //Set ra-interval to default
+                fprintf(fp, "   ipv6 nd ra-lifetime 0\n");
+
+                if (0 == syscfg_get(NULL, "router_preference",pref, sizeof(pref)))
+                {
+                    if (strcmp(pref, "1") == 0)
+                    {
+                        fprintf(fp, "   ipv6 nd router-preference high\n");
+                    }
+                    else if(strcmp(pref, "2") == 0)
+                    {
+                        fprintf(fp, "   ipv6 nd router-preference medium\n");
+                    }
+                    else
+                    {
+                        fprintf(fp, "   ipv6 nd router-preference low\n");
+                    }
+                }
+                memset( name_servs, 0, sizeof( name_servs ) );
+                if (0 == syscfg_get(NULL, "dhcpv6spool00::X_RDKCENTRAL_COM_DNSServers", name_servs, sizeof(name_servs)))
+                {  
+                    for (start = name_servs; (tok = strtok_r(start, " ", &sp)); start = NULL)
+                    {
+                        rdnsslft = 3*RA_INTERVAL;
+                        fprintf(fp, "   ipv6 nd rdnss %s %d\n", tok, rdnsslft);
+
+                    }
+                }
+                memset(val, 0, sizeof(val));
+                if (0 == syscfg_get(NULL, "lan_domain", val, sizeof(val)))
+                {
+                    if(val[0] != '0')
+                      fprintf(fp, "   ipv6 nd dnssl %s infinite\n", val);
+                }    
+              }
+
+
     
 
     fprintf(fp, "interface %s\n", lan_if);
