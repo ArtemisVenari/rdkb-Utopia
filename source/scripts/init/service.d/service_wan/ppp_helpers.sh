@@ -337,6 +337,7 @@ prepare_pppd_options() {
    echo "lock" >> $PPP_OPTIONS_FILE
    echo "debug" >> $PPP_OPTIONS_FILE
    echo "maxauthreq $MAXAUTHREQ" >> $PPP_OPTIONS_FILE
+   echo "holdoff 3" >> $PPP_OPTIONS_FILE
    echo "auth-burst-algo 1" >> $PPP_OPTIONS_FILE
    echo "lcp-burst-algo 1" >> $PPP_OPTIONS_FILE
    echo "lcp-max-configure 6" >> $PPP_OPTIONS_FILE
