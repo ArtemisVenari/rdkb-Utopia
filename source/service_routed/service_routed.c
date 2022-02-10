@@ -800,7 +800,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
 #endif
 
         syscfg_get(NULL, "router_mtu", ra_mtu, sizeof(ra_mtu));
-        if (strcmp(ra_mtu, "0") != 0)
+        if ( (strlen(ra_mtu) > 0) && (strncmp(ra_mtu, "0", sizeof(ra_mtu)) != 0) )
             fprintf(fp, "   ipv6 nd mtu %s\n", ra_mtu);
 
         syscfg_get(NULL, "dhcpv6s_enable", dh6s_en, sizeof(dh6s_en));
