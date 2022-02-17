@@ -629,6 +629,7 @@ static char current_wan_ipv6[IF_IPV6ADDR_MAX][40];
 static char current_wan_ipaddr[20]; // ipv4 address of the wan interface, whether ppp or regular
 static char current_wan_ip6addr[128]; // ipv6 address of the wan interface, whether ppp or regular
 static char lan_ifname[50];       // name of the lan interface
+static char guest_lan_ifname[50]; // name of the guest lan interface
 static char lan_ipaddr[20];       // ipv4 address of the lan interface
 static char lan_netmask[20];      // ipv4 netmask of the lan interface
 static char lan_3_octets[17];     // first 3 octets of the lan ipv4 address
@@ -2166,6 +2167,7 @@ static int prepare_globals_from_configuration(void)
    syscfg_get(NULL, "dmz_enabled", dmz_enabled, sizeof(dmz_enabled)); 
    syscfg_get(NULL, "firewall_enabled", firewall_enabled, sizeof(firewall_enabled)); 
    syscfg_get(NULL, "containersupport", container_enabled, sizeof(container_enabled)); 
+   syscfg_get(NULL, "IPv6_Interface", guest_lan_ifname, sizeof(guest_lan_ifname));
    //mipieper - change for pseudo bridge
    //syscfg_get(NULL, "bridge_mode", bridge_mode, sizeof(bridge_mode)); 
    sysevent_get(sysevent_fd, sysevent_token, "bridge_mode", bridge_mode, sizeof(bridge_mode));
@@ -12008,6 +12010,10 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(mangle_fp, "-A POSTROUTING -j postrouting_qos\n");
    fprintf(mangle_fp, "-A POSTROUTING -j postrouting_lan2lan\n");
 
+   //Ping Flood Limit For Guest Interface
+   fprintf(mangle_fp, "-A PREROUTING -i %s -p icmp -m icmp --icmp-type echo-request -m limit --limit 20/sec -j ACCEPT\n", guest_lan_ifname);
+   fprintf(mangle_fp, "-A PREROUTING -i %s -p icmp -m icmp --icmp-type echo-request -j DROP\n", guest_lan_ifname);
+
 #ifdef _COSA_INTEL_XB3_ARM_
    fprintf(mangle_fp, "-A PREROUTING -i %s -m conntrack --ctstate INVALID -j DROP\n",current_wan_ifname);
    fprintf(mangle_fp, "-A PREROUTING -i %s -m conntrack --ctstate INVALID -j DROP\n",ecm_wan_ifname);
@@ -13783,6 +13789,10 @@ static void do_ipv6_sn_filter(FILE* fp) {
 
         // Accept GRE
         fprintf(fp, "-I PREROUTING -i erouter0 -p gre -j ACCEPT\n");
+
+        //Ping Flood Limit for Guest Interface
+        fprintf(fp, "-A PREROUTING -i %s -p ipv6-icmp -m icmp6 --icmpv6-type echo-request -m limit --limit 20/sec -j ACCEPT\n", guest_lan_ifname);
+        fprintf(fp, "-A PREROUTING -i %s -p ipv6-icmp -m icmp6 --icmpv6-type echo-request -j DROP\n", guest_lan_ifname);
 
         // Invalid Packets
         fprintf(fp, "-A PREROUTING -i erouter0 -m state --state INVALID  -j DROP\n");
