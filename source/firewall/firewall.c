@@ -2964,7 +2964,7 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
           }
           if(IsFileExists("/tmp/lanClients"))
           {
-              snprintf(buf, sizeof(buf), "cat /tmp/lanClients | grep -w %s | awk '{print $3}'| tail -1",internalclient);
+              snprintf(buf, sizeof(buf), "cat /tmp/lanClients | grep -E '(^|\\s)%s($|\\s)' | awk '{print $3}'",internalclient);
               if(!(lanClients = popen(buf, "r")))
               {
                   continue;
@@ -3549,7 +3549,7 @@ static int do_port_range_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, F
            }
            if(IsFileExists("/tmp/lanClients"))
               {
-                     snprintf(buf, sizeof(buf), "cat /tmp/lanClients | grep -w %s | awk '{print $3}'| tail -1",internalclient);
+                     snprintf(buf, sizeof(buf), "cat /tmp/lanClients | grep -E '(^|\\s)%s($|\\s)' | awk '{print $3}'",internalclient);
                      if(!(lanClients = popen(buf, "r")))
                      {
                       continue;
