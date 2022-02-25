@@ -504,7 +504,7 @@ static int do_portscanprotectv4(FILE *fp);
 static int do_blockfragippktsv6(FILE *fp);
 static int do_portscanprotectv6(FILE *fp);
 static int do_ipflooddetectv6(FILE *fp);
-
+static int do_airtiesBlock_fhcd_topodiscovery(FILE *fp);
 
 FILE *firewallfp = NULL;
 
@@ -863,6 +863,7 @@ int greDscp = 44; // Default initialized to 44
 
 /* Configure WiFi flag for captive Portal*/
 #define PSM_NAME_CP_NOTIFY_VALUE "eRT.com.cisco.spvtg.ccsp.Device.WiFi.NotifyWiFiChanges"
+
 /*
  =================================================================
                      utilities
@@ -14058,7 +14059,7 @@ int prepare_ipv6_firewall(const char *fw_file)
        do_blockfragippktsv6(filter_fp);
        do_portscanprotectv6(filter_fp);
        do_ipflooddetectv6(filter_fp);
-	
+       do_airtiesBlock_fhcd_topodiscovery(filter_fp);	
 	/* XDNS - route dns req though dnsmasq */
 #ifdef XDNS_ENABLE
     do_dns_route(nat_fp, 6);
@@ -16124,3 +16125,18 @@ void add_dslite_mss_clamping(FILE *fp)
 }
 #endif
 
+/**
+ *
+ * Function to add IP table rule to block FHCD topology discovery
+ * forwarded to other bridges/interfaces apart from primary(brlan0) bridge.
+ * @param fp: File pointer containing filter table rules.
+ *
+ */
+static int do_airtiesBlock_fhcd_topodiscovery(FILE *fp)
+{
+    /* Since ff02::15D/128 is IANA assigned address, block always whether Airties
+     * is enabled or not since no other service will use it and Airties discovery
+     * is only needed on LAN and not forwarded to other networks*/
+    FIREWALL_DEBUG("Block IPv6 multicast to be forwarded for FHCD topology discovery\n");
+    fprintf(fp, "-A FORWARD -d ff02::15D/128 -j DROP\n");
+}
