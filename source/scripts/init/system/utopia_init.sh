@@ -346,13 +346,8 @@ fi
 
 # model check and ethswctl commands execution
 model=`grep "imagename" /version.txt | awk -F'_v' '{print $1}' | awk -F':' '{print $2}'`
-if [ "$model" = "FAST5386" ]; then
-    # Need to revisit once RDKSGC-72 is completed.
-    ethswctl -c wan -i eth0 -o enable
-fi
 if [ "$model" == "DGA4333" -o "$model" = "FAST5386" ]; then
     ethswctl -c wan -i eth0 -o enable
-    ethswctl -c softswitch -i eth0 -o enable
 elif [ "$model" == "FGA2233" -o "$model" = "FAST5670DT" ]; then
     ethswctl -c softswitch -i eth4 -o enable
 fi
