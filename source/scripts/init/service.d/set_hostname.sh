@@ -58,5 +58,15 @@
 #------------------------------------------------------------------
 
 source /etc/utopia/service.d/hostname_functions.sh
-
-prepare_hostname
+case "$1" in
+    "lanhost")
+       if [ ! -f /tmp/hostname_lock ]; then
+         prepare_lanhost_hostname
+       fi
+       ;;
+     *)  
+       touch /tmp/hostname_lock   
+       prepare_hostname
+       rm /tmp/hostname_lock   
+       ;;
+esac

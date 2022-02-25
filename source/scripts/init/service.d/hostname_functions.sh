@@ -38,6 +38,36 @@ HOSTS_FILE=/etc/hosts
 HOSTNAME_FILE=/etc/hostname
 source /etc/device.properties
 
+
+prepare_lanhost_hostname()
+{
+   LANHOST_COUNT=`dmcli eRT getv Device.Hosts.HostNumberOfEntries |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'`
+   count=1
+   reload=0
+   while [ $count -le $LANHOST_COUNT ]
+   do
+      LANHOST_IPv6_LLA=`dmcli eRT getv Device.Hosts.Host.$count.IPv6Address.2.IPAddress |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'`                               
+      if [ "$LANHOST_IPv6_LLA" != "" ]; then
+         LANHOST_HOSTNAME=`dmcli eRT getv Device.Hosts.Host.$count.HostName |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'` 
+         if [ "$LANHOST_HOSTNAME" != "" ]; then
+            LANHOST_PHYADDRESS=`dmcli eRT getv Device.Hosts.Host.$count.PhysAddress |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'` 
+            if [ "$LANHOST_HOSTNAME" != "$LANHOST_PHYADDRESS" ]; then
+               LANHOST_HOSTNAME_APPEND=`cat $HOSTS_FILE | grep -wn "$LANHOST_HOSTNAME" | cut -d: -f1`
+               LANHOST_IPv6_APPEND=`cat $HOSTS_FILE | grep -wn "$LANHOST_IPv6_LLA" | cut -d: -f1`
+               if [ "$LANHOST_HOSTNAME_APPEND" == "" ]  && [ "$LANHOST_IPv6_APPEND" == "" ] ; then  
+                  echo "$LANHOST_IPv6_LLA   $LANHOST_HOSTNAME" >> $HOSTS_FILE
+                  reload=1
+               fi  
+            fi   
+         fi
+      fi    
+      count=$((count + 1))
+   done
+   if [ "$reload" -eq 1 ]; then
+      kill -HUP `cat /var/run/dnsmasq.pid`   
+   fi  
+}
+
 #-----------------------------------------------------------------
 # set the hostname files
 #-----------------------------------------------------------------
@@ -97,5 +127,7 @@ prepare_hostname () {
    echo "ff02::1         ip6-allnodes" >> $HOSTS_FILE
    echo "ff02::2         ip6-allrouters" >> $HOSTS_FILE
    echo "ff02::3         ip6-allhosts" >> $HOSTS_FILE
+   
+   prepare_lanhost_hostname
 }
 
