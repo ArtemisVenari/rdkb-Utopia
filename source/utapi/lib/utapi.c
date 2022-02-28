@@ -2007,13 +2007,13 @@ int Utopia_SetFirewallSettings (UtopiaContext *ctx, firewall_t fw)
 
      int rule_count = 0;
 
-         FALSE == fw.allow_ipsec_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "$ACCEPT");
+         FALSE == fw.allow_ipsec_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockipsec, "ipsec", "ACCEPT");
 
-      FALSE == fw.allow_pptp_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "$ACCEPT");
+      FALSE == fw.allow_pptp_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockpptp, "pptp", "ACCEPT");
 
-     FALSE == fw.allow_l2tp_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "$ACCEPT");
+     FALSE == fw.allow_l2tp_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockl2tp, "l2tp", "ACCEPT");
 
-      FALSE == fw.allow_ssl_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockssl, "ssl", "$DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockssl, "ssl", "$ACCEPT");
+      FALSE == fw.allow_ssl_passthru? setFWBlockingRule(ctx, ++rule_count, s_blockssl, "ssl", "DROP") : setFWBlockingRule(ctx, ++rule_count, s_blockssl, "ssl", "ACCEPT");
 
 
      UTOPIA_SETINT(ctx, UtopiaValue_Firewall_W2LWKRuleCount, rule_count);
@@ -2076,28 +2076,28 @@ int Utopia_GetFirewallSettings (UtopiaContext *ctx, firewall_t *fw)
 
      memset(buf, 0, sizeof(buf));
     syscfg_get(NULL, "blockssl::result", buf, sizeof(buf));
-    if (0 == strcmp("$DROP",buf))
+    if (0 == strcmp("DROP",buf))
     {
            fw->allow_ssl_passthru = FALSE;
     }
 
     memset(buf, 0, sizeof(buf));
     syscfg_get(NULL, "blockipsec::result", buf, sizeof(buf));
-    if (0 == strcmp("$DROP",buf))
+    if (0 == strcmp("DROP",buf))
     {
            fw->allow_ipsec_passthru = FALSE;
     }
 
     memset(buf, 0, sizeof(buf));
     syscfg_get(NULL, "blockl2tp::result", buf, sizeof(buf));
-    if (0 == strcmp("$DROP",buf))
+    if (0 == strcmp("DROP",buf))
     {
            fw->allow_l2tp_passthru = FALSE;
     }
 
     memset(buf, 0, sizeof(buf));
     syscfg_get(NULL, "blockpptp::result", buf, sizeof(buf));
-    if (0 == strcmp("$DROP",buf))
+    if (0 == strcmp("DROP",buf))
     {
            fw->allow_pptp_passthru = FALSE;
      }
