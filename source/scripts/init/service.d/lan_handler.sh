@@ -363,7 +363,7 @@ case "$1" in
             #To convert 2.5GPHY from LAN (eth5) back to WAN (eth0)
             model=`grep "imagename" /version.txt | awk -F'_v' '{print $1}' | awk -F':' '{print $2}'`
             if [ "$model" == "DGA4333" ]; then
-                sh /etc/covert_lantowan.sh
+                sh /etc/convert_lantowan.sh
             fi
 
             wl_ifnames=`cat /etc/wlan/apps_defaults.txt | grep -i bsd_ifnames | cut -d '=' -f 2`
