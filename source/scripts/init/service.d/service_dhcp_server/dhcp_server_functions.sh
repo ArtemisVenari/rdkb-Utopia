@@ -942,7 +942,7 @@ fi
 
    #Option for parsing STB vendor class
    partner_id="$(syscfg get PartnerID)"
-   if [ "$partner_id" = "telekom-hr" ]; then
+   if [ "$partner_id" = "telekom-hr" ] || [ "$partner_id" = "telekom-dev-hr" ] || [ "$partner_id" = "telekom-hr-test" ]; then
        echo "dhcp-vendorclass=set:media,HT_STB" >> $LOCAL_DHCP_CONF
    fi
 
