@@ -71,6 +71,7 @@ COMCAST_ACTIVATE_URL="https://activate.comcast.com"
 COMCAST_ACTIVATE_URL_2="https://caap-pdca.sys.comcast.net"
 COMCAST_HTTP_URL="http://comcast.com"
 DEFAULT_FILE="/etc/utopia/system_defaults"
+WAN_PROTO=`syscfg get wan_proto`
 
 # Variables needed for captive portal mode : end
 
@@ -960,7 +961,9 @@ fi
    if [ "dns_only" != "$3" ] ; then
       prepare_dhcp_conf_static_hosts
       #prepare_dhcp_options
+      if [ "$WAN_PROTO" != "pppoe" ]; then
 	  prepare_dhcp_options_wan_dns	
+      fi
    fi
    
 #   if [ "x$BOX_TYPE" != "xHUB4" ] && [ "x$BOX_TYPE" != "xSR300" ]; then

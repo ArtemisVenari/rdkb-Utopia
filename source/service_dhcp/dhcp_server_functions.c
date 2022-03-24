@@ -747,6 +747,8 @@ int prepare_dhcp_conf (char *input)
 		 l_bDhcpNs_Enabled = FALSE,
 		 l_bIsValidWanDHCPNs = FALSE;
 
+        char wan_proto[16] = {0};
+        syscfg_get(NULL, "wan_proto", wan_proto, sizeof(wan_proto));
 	if ((NULL != input) && (!strncmp(input, "dns_only", 8)))
 	{
 		fprintf(stderr, "dns_only case prefix is #\n");
@@ -1119,7 +1121,8 @@ int prepare_dhcp_conf (char *input)
 	fprintf(l_fLocal_Dhcp_ConfFile, "%sdhcp-hostsfile=%s\n", l_cDns_Only_Prefix, DHCP_STATIC_HOSTS_FILE);
 
 	if ( ( FALSE == l_bCaptivePortal_Mode) &&\
-		  ( FALSE == l_bDhcpNs_Enabled ) 
+             ( FALSE == l_bDhcpNs_Enabled ) &&\
+             ( strncmp(wan_proto, "pppoe", 5) != 0 )
 		)
 	{
 		fprintf(l_fLocal_Dhcp_ConfFile, "%sdhcp-optsfile=%s\n", l_cDns_Only_Prefix, DHCP_OPTIONS_FILE);
@@ -1134,7 +1137,8 @@ int prepare_dhcp_conf (char *input)
 	{
 		fprintf(stderr, "not dns_only case calling other prepare functions\n");
 		prepare_dhcp_conf_static_hosts();
-		prepare_dhcp_options_wan_dns();
+                if (strncmp(wan_proto, "pppoe", 5) != 0)
+                    prepare_dhcp_options_wan_dns();
 	}
   
    	sysevent_get(g_iSyseventfd, g_tSysevent_token, "lan-status", l_cLan_Status, sizeof(l_cLan_Status));
