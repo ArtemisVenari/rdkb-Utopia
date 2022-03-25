@@ -116,8 +116,7 @@ prepare_pppd_ip_up_script() {
    if [ `syscfg get mgmt_wan_sshaccess` == "1" ]; then
        echo "sysevent set sshd-restart" >> $IP_UP_FILENAME
    fi
-   echo "dmcli eRT setv Device.NotifyComponent.SetNotifi_ParamName string WAN_IP,Retrieved" >> $IP_UP_FILENAME
-
+   
    echo "echo \"[utopia][pppd ip-up] sysevent set pppd_current_wan_ifname \$1\" > /dev/console" >> $IP_UP_FILENAME
    echo "sysevent set pppd_current_wan_ifname \$1" >> $IP_UP_FILENAME
    echo "echo \"[utopia][pppd ip-up] sysevent set pppd_current_wan_subnet \$PPP_SUBNET\" > /dev/console" >> $IP_UP_FILENAME
@@ -227,8 +226,7 @@ prepare_pppd_ip_down_script() {
    echo "sysevent set current_wan_subnet 0.0.0.0" >> $IP_DOWN_FILENAME
    echo "sysevent set current_wan_ipaddr 0.0.0.0" >> $IP_DOWN_FILENAME
    echo "sysevent set current_wan_state down" >> $IP_DOWN_FILENAME
-   echo "dmcli eRT setv Device.NotifyComponent.SetNotifi_ParamName string WAN_IP,Not_Retrieved" >> $IP_DOWN_FILENAME
-
+   
    #TODO:Need to revisit this part once the SKY Version-2 is available.
    if [ `syscfg get mgmt_wan_sshaccess` == "1" ]; then
        echo "sysevent set sshd-restart" >> $IP_DOWN_FILENAME
