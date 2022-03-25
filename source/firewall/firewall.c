@@ -9899,6 +9899,8 @@ static void do_lan2wan_disable(FILE *filter_fp)
 static int do_lan2wan_helpers(FILE *raw_fp)
 {
    char str[MAX_QUERY];
+   char buf[64] = {0};
+
    FIREWALL_DEBUG("Entering do_lan2wan_helpers\n");
    /* Allow FTP passthrough to work */
    fprintf(raw_fp, "-A lan2wan_helpers -p tcp --dport 21 -j CT --helper ftp\n");
@@ -9915,6 +9917,11 @@ static int do_lan2wan_helpers(FILE *raw_fp)
    }
 #endif
    fprintf(raw_fp, "-A lan2wan_helpers -p tcp --dport 554 -j CT --helper rtsp\n");
+
+   if((syscfg_get( NULL, "PartnerID", buf, sizeof( buf )) == 0) && ((strcmp(buf,"telekom-hr") == 0) || (strcmp(buf,"telekom-dev-hr") == 0) || (strcmp(buf,"telekom-hr-test") == 0)))
+   {
+       fprintf(raw_fp, "-A lan2wan_helpers -p udp --dport 5060 -j CT --helper sip\n");
+   }
 
    FIREWALL_DEBUG("Exiting do_lan2wan_helpers\n");
    return(0);
