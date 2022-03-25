@@ -49,6 +49,7 @@ prepare_hostname () {
    SECUREWEBUI_ENABLED=`syscfg get SecureWebUI_Enable`
    IPV6_BRLAN0_ADDRESS=`sysevent get lan_ipaddr_v6`
    lan_ipaddr_v6_lla=`syscfg get LLA_default_value`
+   partnerID=`syscfg get PartnerID`
 
    if [ "" != "$HOSTNAME" ] ; then
       if [ "$MODEL_NUM" == "PX5001B" ] && [ "$SECUREWEBUI_ENABLED" == "true" ]; then
@@ -65,8 +66,12 @@ prepare_hostname () {
    if [ "" != "$HOSTNAME" ] ; then
       echo "$LAN_IPADDR     $HOSTNAME" > $HOSTS_FILE
       echo "$lan_ipaddr_v6_lla  $HOSTNAME" >> $HOSTS_FILE
-      if [ "$IPV6_BRLAN0_ADDRESS" != "" ]; then
-          echo "$IPV6_BRLAN0_ADDRESS  $HOSTNAME" >> $HOSTS_FILE
+      if [ "$partnerID" != "telekom-de-test" ] \
+      && [ "$partnerID" != "telekom-dev-de" ] \
+      && [ "$partnerID" != "telekom-de" ]; then
+          if [ "$IPV6_BRLAN0_ADDRESS" != "" ]; then
+              echo "$IPV6_BRLAN0_ADDRESS  $HOSTNAME" >> $HOSTS_FILE
+          fi
       fi
    else
       echo -n > $HOSTS_FILE
