@@ -11030,6 +11030,7 @@ static int prepare_multinet_filter_forward_v6(FILE *fp) {
    unsigned char multinet_ifname[MAX_QUERY] = {0};
    unsigned char lan_prefix[MAX_QUERY] = {0};
    unsigned char* tok = NULL;
+   unsigned char guest_interface[MAX_QUERY] = {0};
 
    snprintf(sysevent_query, sizeof(sysevent_query), "ipv6_active_inst");
    sysevent_get(sysevent_fd, sysevent_token, sysevent_query, inst_resp, sizeof(inst_resp));
@@ -11071,6 +11072,11 @@ static int prepare_multinet_filter_forward_v6(FILE *fp) {
       // Added this rule to allow any ipv6 traffic local to the bridge
       fprintf(fp, "-A FORWARD -i %s -o %s -j ACCEPT\n", multinet_ifname, multinet_ifname);
 
+      syscfg_get(NULL, "IPv6_Interface", guest_interface, sizeof(guest_interface));
+      if ( (guest_interface[0] != '\0') && (lan_ifname[0] != '\0') &&   (0 != strncmp( lan_ifname, guest_interface, strlen(lan_ifname)))) { // block forwarding between bridge
+              fprintf(filter_fp, "-A FORWARD -i %s -o %s -j DROP\n", lan_ifname, guest_interface);
+              fprintf(filter_fp, "-A FORWARD -i %s -o %s -j DROP\n", guest_interface, lan_ifname);
+      }
    }while ((tok = strtok(NULL, " ")) != NULL);
 
    return 0;
