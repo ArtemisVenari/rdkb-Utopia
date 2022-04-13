@@ -7219,15 +7219,17 @@ static char *trim(char *in)
 }
 
 #define DNS_RESOLV_FILE "/etc/resolv.dnsmasq"
-static int resolve_dns_server(char* line, char* dns_server){
+static int resolve_dns_server(char* line, char* dns_server, char* alias){
     char *p;
     char *q;
     char *r;
+    char dup[256] = {'\0'};
   
     if(line == NULL || dns_server == NULL)
         return -1;
     /* remove the '\n' at the end of line */
     line[strlen(line) - 1] = '\0';
+    strncpy(dup,line,256);
 
     if(NULL != (p = strstr(line, "nameserver"))){
         p += strlen("nameserver");
@@ -7238,6 +7240,18 @@ static int resolve_dns_server(char* line, char* dns_server){
         q=trim(p);
         r = strtok(q, " ");
         memcpy(dns_server, r, strlen(r)+1);
+	//p = q = r = NULL;
+	if (NULL != (p = strstr(dup, "#"))){
+	    while((*p == ' ') || (*p == '#'))
+		p++;
+	    q = trim(p);
+	    r = strtok(q, " ");
+	    memcpy(alias, r, strlen(r)+1);
+	}
+	else {
+	    strncpy(alias, "INTERNET", TR_ALIAS_SZ);
+	}
+
         return 0;
     }
 
@@ -7280,7 +7294,7 @@ int Utopia_GetDNSServer(UtopiaContext *ctx, DNS_Client_t * dns){
     }
     memset(dns, 0, sizeof(DNS_Client_t));
     while(fgets(line, sizeof(line), fp) && i < DNS_CLIENT_NAMESERVER_CNT){
-        if(0 == resolve_dns_server(line, &(dns->dns_server[i][0])))
+        if(0 == resolve_dns_server(line, &(dns->dns_server[i][0]),&(dns->s_alias[i][0])))
             i++;
     }
 
