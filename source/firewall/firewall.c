@@ -9885,7 +9885,7 @@ static void do_lan2wan_disable(FILE *filter_fp)
 #endif
     if(!isNatReady){
          snprintf(str, sizeof(str),
-                  "-A lan2wan_disable -s %s/%s -j DROP", lan_ipaddr, lan_netmask);
+                  "-A lan2wan_disable -s %s/%s -o %s -j DROP", lan_ipaddr, lan_netmask, current_wan_ifname);
          fprintf(filter_fp, "%s\n", str);
 
 #if defined (MULTILAN_FEATURE)
@@ -9961,7 +9961,7 @@ static int do_lan2wan_misc(FILE *filter_fp)
 #endif    
    if (!isWanReady) {
       snprintf(str, sizeof(str),
-               "-I lan2wan_misc 1 -j DROP");
+               "-I lan2wan_misc 1 -o %s -j DROP", current_wan_ifname);
       fprintf(filter_fp, "%s\n", str);
    }
    char mtu[26];
@@ -10447,7 +10447,7 @@ static int do_wan2lan_disabled(FILE *fp)
     */
    if (!isNatReady ) {
       snprintf(str, sizeof(str),
-               "-A wan2lan_disabled -d %s/%s -j DROP\n", lan_ipaddr, lan_netmask);
+               "-A wan2lan_disabled -i %s -d %s/%s -j DROP\n", current_wan_ifname, lan_ipaddr, lan_netmask);
       fprintf(fp, "%s\n", str);
 
 #if defined (MULTILAN_FEATURE)
