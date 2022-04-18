@@ -36,6 +36,12 @@
 
 /fss/gw/usr/bin/GenFWLog -c
 /fss/gw/usr/bin/firewall $*
+
+if [ -f /var/run/cujo/firewall-rules.sh ]
+then
+    /var/run/cujo/firewall-rules.sh
+fi
+
 /fss/gw/usr/bin/GenFWLog -gc
 
 CONN_F=`sysevent get firewall_flush_conntrack`
