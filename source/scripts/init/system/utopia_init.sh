@@ -741,6 +741,16 @@ brctl addif br106 l2sd0.106
 ip rule add from all iif l2sd0.106 lookup erouter
 ip rule add from all iif br106 lookup erouter
 
+# Disable WAN SSH if dropbear is not present in SW
+
+WAN_SSH_ACCESS=`syscfg get mgmt_wan_sshaccess`
+LAN_SSH_ACCESS=`syscfg get mgmt_lan_sshaccess`
+if  [ ! -f "/usr/sbin/dropbear" ] && ([ "$WAN_SSH_ACCESS" = "1" ] || [ "$LAN_SSH_ACCESS" = "1" ]); then
+   syscfg set mgmt_wan_sshaccess 0
+   syscfg set mgmt_lan_sshaccess 0
+   syscfg commit
+fi
+
 # Check and set factory-reset as reboot reason 
 if [ "$FACTORY_RESET_REASON" = "true" ]; then
    echo_t "[utopia][init] Detected last reboot reason as factory-reset"
