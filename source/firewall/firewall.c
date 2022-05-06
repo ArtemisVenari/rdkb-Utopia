@@ -643,7 +643,6 @@ static char lan_ipaddr[20];       // ipv4 address of the lan interface
 static char lan_netmask[20];      // ipv4 netmask of the lan interface
 static char lan_3_octets[17];     // first 3 octets of the lan ipv4 address
 static char lan_ipaddr_v6[40];    // ipv6 gua of the lan interface
-static char brlan1_ipaddr_v6[40]; //ipv6 gua of the guest lan interface
 static char iot_ifName[50];       // IOT interface
 static char iot_primaryAddress[50]; //IOT primary IP address
 #if defined(_COSA_BCM_MIPS_)
@@ -2184,7 +2183,6 @@ static int prepare_globals_from_configuration(void)
    //syscfg_get(NULL, "bridge_mode", bridge_mode, sizeof(bridge_mode)); 
    sysevent_get(sysevent_fd, sysevent_token, "bridge_mode", bridge_mode, sizeof(bridge_mode));
    sysevent_get(sysevent_fd, sysevent_token, "lan_ipaddr_v6", lan_ipaddr_v6, sizeof(lan_ipaddr_v6));
-   sysevent_get(sysevent_fd, sysevent_token, "brlan1_ipaddr_v6", brlan1_ipaddr_v6, sizeof(brlan1_ipaddr_v6));
    syscfg_get(NULL, "log_level", log_level, sizeof(log_level)); 
    if ('\0' == log_level[0]) {
       sprintf(log_level, "1");
@@ -14305,6 +14303,10 @@ static void do_ipv6_filter_table(FILE *fp){
    // Video Analytics Firewall rule to allow port 58081 only from LAN interface
    do_OpenVideoAnalyticsPort (fp);
 
+   //Block GUI Access via IPv6 with LAN GUA
+   if(lan_ipaddr_v6[0] != '\0')
+       fprintf(fp, "-A INPUT -i brlan0 -d %s -p tcp -m tcp --dport %s -j REJECT\n", lan_ipaddr_v6, reserved_mgmt_port);
+
    if (!isFirewallEnabled || isBridgeMode || !isWanServiceReady) {
        if(isBridgeMode || isWanServiceReady)
            do_remote_access_control(NULL, fp, AF_INET6);
@@ -14391,12 +14393,6 @@ static void do_ipv6_filter_table(FILE *fp){
 
       // Accept everything from localhost
       fprintf(fp, "-A INPUT -i lo -j ACCEPT\n");
-
-      //Block GUI Access via IPv6 with LAN GUA
-      if(lan_ipaddr_v6[0] != '\0') 
-          fprintf(fp, "-A INPUT -i brlan0 -d %s -p tcp -m tcp --dport %s -j REJECT\n", lan_ipaddr_v6, reserved_mgmt_port);
-      if(brlan1_ipaddr_v6[0] != '\0')
-          fprintf(fp, "-A INPUT -i brlan1 -d %s -p tcp -m tcp --dport %s -j REJECT\n", brlan1_ipaddr_v6, reserved_mgmt_port);
 
 #if !defined(_PLATFORM_IPQ_)
       // Block the evil routing header type 0
