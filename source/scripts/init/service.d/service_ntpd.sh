@@ -145,6 +145,8 @@ service_start ()
 
    rm -rf $NTP_CONF_TMP $NTP_CONF_QUICK_SYNC
 
+   global_address=`ifconfig erouter0 | grep -i "Scope:Global" | awk '/inet6/{print $3}' | cut -d '/' -f 1`
+
    # Add Initial Interface Security Rules
    echo "restrict -4 default kod nomodify notrap noquery" >> $NTP_CONF_TMP
    echo "restrict -6 default kod nomodify notrap noquery" >> $NTP_CONF_TMP
@@ -155,27 +157,37 @@ service_start ()
        # Start NTP Config Creation with Multiple Server Setup
        echo_t "SERVICE_NTPD : Creating NTP config with New NTP Enabled" >> $NTPD_LOG_NAME
        if [ "x$SYSCFG_ntp_server1" != "x" ] && [ "x$SYSCFG_ntp_server1" != "xno_ntp_address" ]; then
-           echo "pool -6 $SYSCFG_ntp_server1 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           if [ "$global_address" != "" ]; then
+               echo "pool -6 $SYSCFG_ntp_server1 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           fi
            echo "pool -4 $SYSCFG_ntp_server1 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server2" != "x" ] && [ "x$SYSCFG_ntp_server2" != "xno_ntp_address" ]; then
-           echo "pool -6 $SYSCFG_ntp_server2 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           if [ "$global_address" != "" ]; then
+               echo "pool -6 $SYSCFG_ntp_server2 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           fi
            echo "pool -4 $SYSCFG_ntp_server2 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server3" != "x" ] && [ "x$SYSCFG_ntp_server3" != "xno_ntp_address" ]; then
-           echo "pool -6 $SYSCFG_ntp_server3 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           if [ "$global_address" != "" ]; then
+               echo "pool -6 $SYSCFG_ntp_server3 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           fi
            echo "pool -4 $SYSCFG_ntp_server3 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server4" != "x" ] && [ "x$SYSCFG_ntp_server4" != "xno_ntp_address" ]; then
-           echo "pool -6 $SYSCFG_ntp_server4 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           if [ "$global_address" != "" ]; then
+               echo "pool -6 $SYSCFG_ntp_server4 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           fi
            echo "pool -4 $SYSCFG_ntp_server4 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server5" != "x" ] && [ "x$SYSCFG_ntp_server5" != "xno_ntp_address" ]; then
-           echo "pool -6 $SYSCFG_ntp_server5 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           if [ "$global_address" != "" ]; then
+               echo "pool -6 $SYSCFG_ntp_server5 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           fi
            echo "pool -4 $SYSCFG_ntp_server5 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
            VALID_SERVER="true"
        fi
@@ -211,7 +223,9 @@ service_start ()
        # Start NTP Config Creation with Legacy Single Server Setup
        echo_t "SERVICE_NTPD : Creating NTP config" >> $NTPD_LOG_NAME
 
-       echo "pool -6 $SYSCFG_ntp_server1 true" >> $NTP_CONF_TMP
+       if [ "$global_address" != "" ]; then
+           echo "pool -6 $SYSCFG_ntp_server1 true" >> $NTP_CONF_TMP
+       fi
        echo "pool -4 $SYSCFG_ntp_server1 true" >> $NTP_CONF_TMP
 
    fi # if [ "$SYSCFG_new_ntp_enabled" = "true" ]; then

@@ -15087,6 +15087,13 @@ v6GPFirewallRuleNext:
        if (prev_prefix[0] != '\0')
              fprintf(fp, "-A FORWARD -i brlan0 -o erouter0 -s %s -j REJECT --reject-with icmp6-policy-fail\n", prev_prefix);
 
+      if( current_wan_ipv6[0]) == '\0' )
+      {
+          fprintf(fp, "-A FORWARD -i brlan0 -o erouter0 -j DROP\n");
+          fprintf(fp, "-A FORWARD -i brlan1 -o erouter0 -j DROP\n");
+          fprintf(fp, "-A OUTPUT -o erouter0 -j DROP\n");
+      }
+
       // Basic RPF check on the egress & ingress traffic
       char prefix[129];
       sysevent_get(sysevent_fd, sysevent_token, "ipv6_prefix", prefix, sizeof(prefix));
