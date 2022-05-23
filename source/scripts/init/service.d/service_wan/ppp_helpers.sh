@@ -273,7 +273,6 @@ prepare_pppd_options() {
    IPV6CP=`syscfg get IPV6CPEn`
    IPCP=`syscfg get IPCPEn`
    WAN_MTU=`syscfg get wan_mtu`
-   MAXMRUSIZE=`syscfg get MaxMRUSize`
    MAXAUTHREQ=`syscfg get maxauthreq`
 
    echo -n > $PPP_OPTIONS_FILE
@@ -315,7 +314,6 @@ prepare_pppd_options() {
             sed -i 's/noip//g' >> $PPP_OPTIONS_FILE
      fi
    fi
-   echo "mru $MAXMRUSIZE" >> $PPP_OPTIONS_FILE
    echo "idle $PPP_IDLE_TIME" >> $PPP_OPTIONS_FILE
    echo "defaultroute" >> $PPP_OPTIONS_FILE
    echo "usepeerdns" >> $PPP_OPTIONS_FILE

@@ -506,6 +506,29 @@ void logPrintMain(char* filename, int line, char *fmt,...);
 
 #define MARKING_LIST_SIZE	108
 
+#ifdef FEATURE_RDKB_WAN_MULTI_VLAN
+/* QoS related */
+#define WAN_MARKING_NOE_PARAM_NAME  "Device.X_RDK_WanManager.CPEInterface.%d.MarkingNumberOfEntries"
+#define WAN_MARKING_TABLE_NAME      "Device.X_RDK_WanManager.CPEInterface.%d.Marking."
+#define WAN_IF_ACTIVE_LINK          "Device.X_RDK_WanManager.CPEInterface.%d.Selection.ActiveLink"
+#define WAN_IF_NAME                 "Device.X_RDK_WanManager.CPEInterface.%d.Name"
+#define WAN_VIF_NOF_MARKINGS        "Device.X_RDK_WanManager.CPEInterface.%d.VirtualInterface.%d.MarkingNumberOfEntries"
+#define WAN_VIF_MARKINGS_ENTRY      "Device.X_RDK_WanManager.CPEInterface.%d.VirtualInterface.%d.Marking.%d.Entry"
+#define WAN_IF_COUNT                "Device.X_RDK_WanManager.CPEInterfaceNumberOfEntries"
+#define PARAM_SIZE_256          256
+#define PARAM_SIZE_128          128
+#define PARAM_SIZE_32           32
+#define PARAM_SIZE_16           16
+#define BASE_10                 10
+#define WAN_COMPONENT_NAME                "eRT.com.cisco.spvtg.ccsp.wanmanager"
+#define WAN_DBUS_PATH                     "/com/cisco/spvtg/ccsp/wanmanager"
+static int DmlUtopiaGetParamValues(
+    char *pComponent,
+    char *pBus,
+    char *pParamName,
+    char *pReturnVal);
+#endif
+
 static int do_blockfragippktsv4(FILE *fp);
 static int do_ipflooddetectv4(FILE *fp);
 static int do_portscanprotectv4(FILE *fp);
@@ -874,6 +897,11 @@ int greDscp = 44; // Default initialized to 44
 /* Configure WiFi flag for captive Portal*/
 #define PSM_NAME_CP_NOTIFY_VALUE "eRT.com.cisco.spvtg.ccsp.Device.WiFi.NotifyWiFiChanges"
 
+#define PSM_SIZE_64 64
+static int GetTotalNoOfVirtualInterfaces(void);
+static void GetVirtualInterfacesName(int index, char* vlan_name);
+static int GetVirtualIfaceId(int VlanIndex);
+static int GetVirtualInterfacesRouteId(int index);
 /*
  =================================================================
                      utilities
@@ -6333,7 +6361,7 @@ static int remote_access_set_proto(FILE *filt_fp, FILE *nat_fp, const char *port
 		fprintf(filt_fp, "-A INPUT -i %s  -p tcp -m tcp --dport %s -d %s -j DROP\n", interface, port, IPv6 );
 		}
 #endif
-        fprintf(filt_fp, "-A wan2self_mgmt -i %s %s -p tcp -m tcp --dport %s -j ACCEPT\n", interface, src, port);
+        fprintf(filt_fp, "-A wan2self_mgmt -i %s %s -p tcp -m tcp --dport %s -j DROP\n", interface, src, port);
     }
          FIREWALL_DEBUG("Exiting remote_access_set_proto\n");    
     return 0;
@@ -6486,9 +6514,9 @@ static int do_remote_access_control(FILE *nat_fp, FILE *filter_fp, int family)
             }
             else {
                 if (strcmp(startip, endip) == 0) {
-                    snprintf(srcaddr, sizeof(srcaddr), "-s %s", startip);
+                    snprintf(srcaddr, sizeof(srcaddr), "! -s %s", startip);
                 } else {
-                    snprintf(srcaddr, sizeof(srcaddr), "-m iprange --src-range %s-%s", startip, endip);
+                    snprintf(srcaddr, sizeof(srcaddr), "-m iprange ! --src-range %s-%s", startip, endip);
                 }
             }
         }
@@ -11694,53 +11722,46 @@ static int mark_dedicated_routing_tables(FILE *mangle_fp)
 {
    char wan_physical_if[32] = {0};
    char buf[32] = {0};
-   char vlanName[32] = {0};
-   char vlanID[16] = {0};
-   char vlanRouteID[16] = {0};
+   int vlanID  = 0;
+   int vlanRouteID = 0;
    char ip[32] = {0};
    char subnet[16] = {0};
    char sysevent[128] = {0};
    int numVlanIfc = 0;
 
    syscfg_get(NULL, "wan_physical_ifname", wan_physical_if, sizeof(wan_physical_if));
-   syscfg_get(NULL, "Vlan_NumOfIfs", buf, sizeof(buf));
-   numVlanIfc = atoi(buf);
-   memset(buf, 0, sizeof(buf));
+   numVlanIfc = GetTotalNoOfVirtualInterfaces();
 
    for(int vlanCount = 1; vlanCount <= numVlanIfc; vlanCount++ ){
-       snprintf(buf, sizeof(buf), "Vlan_%d_Name", vlanCount);
-       syscfg_get(NULL, buf, vlanName, sizeof(vlanName));
-       memset(buf, 0, sizeof(buf));
-       if(!strcmp(vlanName, "VoIP"))
+       GetVirtualInterfacesName(vlanCount, buf);
+       if(!strcmp(buf, "VOIP"))
        {
            memset(ip, 0, sizeof(ip));
            memset(subnet, 0, sizeof(subnet));
-           memset(vlanRouteID, 0, sizeof(vlanRouteID));
            // get ip and mask from sysevents
-           snprintf(buf, sizeof(buf), "Vlan_%d_ID", vlanCount);
-           syscfg_get(NULL, buf, vlanID, sizeof(vlanID));
+           vlanID = GetVirtualIfaceId(vlanCount);
            memset(buf, 0, sizeof(buf));
-           snprintf(sysevent, sizeof(sysevent), "ipv4_%s.%s_dhcp_server", wan_physical_if, vlanID);
+           snprintf(sysevent, sizeof(sysevent), "ipv4_%s.%d_dhcp_server", wan_physical_if, vlanID);
            if(sysevent_get(sysevent_fd, sysevent_token, sysevent, ip, sizeof(ip)) != 0)
            {
                FIREWALL_DEBUG("ERROR: failed to get sysevent ipv4_<interface>_dhcp_server\n");
            }
-           snprintf(sysevent, sizeof(sysevent), "ipv4_%s.%s_subnet", wan_physical_if, vlanID);
+           snprintf(sysevent, sizeof(sysevent), "ipv4_%s.%d_subnet", wan_physical_if, vlanID);
            if(sysevent_get(sysevent_fd, sysevent_token, sysevent, subnet, sizeof(subnet)) != 0)
            {
                FIREWALL_DEBUG("ERROR: failed to get sysevent ipv4_<interface>_subnet\n");
            }
            // get routing table id
-           snprintf(buf, sizeof(buf), "Vlan_%d_ROUTE_ID", vlanCount);
-           syscfg_get(NULL, buf, vlanRouteID, sizeof(vlanRouteID));
+           vlanRouteID = GetVirtualInterfacesRouteId(vlanCount);
            memset(buf, 0, sizeof(buf));
            if (ip[0] != '\0' && subnet[0] != '\0')
-               fprintf(mangle_fp, "-A OUTPUT -d %s/%s -j MARK --set-mark 0x%s\n", ip, subnet, vlanRouteID);
+               fprintf(mangle_fp, "-A OUTPUT -d %s/%s -j MARK --set-mark 0x%d\n", ip, subnet, vlanRouteID);
        }
    }
    return 0;
 }
 
+#ifndef FEATURE_RDKB_WAN_MULTI_VLAN
 static int add_qos_skb_mark(FILE *mangle_fp, int family)
 {
    int retPsmGet = CCSP_SUCCESS;
@@ -11769,13 +11790,9 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
 
    int dest_port = 0;
 
-   syscfg_get(NULL, "Vlan_NumOfIfs", buf, sizeof(buf));
-   numVlanIfc = atoi(buf);
-   memset(buf, 0, sizeof(buf));
+   numVlanIfc = GetTotalNoOfVirtualInterfaces();
 
-   syscfg_get(NULL, "Vlan_1_ID", buf, sizeof(buf));
-   primary_Vlan_ID = atoi(buf);
-   memset(buf, 0, sizeof(buf));
+   primary_Vlan_ID = GetVirtualIfaceId(1);
 
    if(bus_handle != NULL) {
 
@@ -11788,7 +11805,7 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
        }
        for(int i=1;i <= wanif_count;i++)
        {
-           snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.%d.ActiveLink", i);
+           snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.%d.Selection.ActiveLink", i);
            retPsmGet = PSM_VALUE_GET_STRING(psmEntry, activeValue);
            if(retPsmGet == CCSP_SUCCESS && activeValue != NULL) {
 
@@ -11825,9 +11842,7 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
        token = strtok( TmpList, "-" );
        while ( token != NULL && vlanCount <= numVlanIfc )
        {
-           snprintf(syscfgEntry, sizeof(syscfgEntry), "Vlan_%d_ID", vlanCount);
-           syscfg_get(NULL, syscfgEntry, buf, sizeof(buf));
-           vlanID = atoi(buf);
+           vlanID = GetVirtualIfaceId(vlanCount);
            memset(buf, 0, sizeof(buf));
            memset(syscfgEntry, 0, sizeof(syscfgEntry));
 
@@ -11836,7 +11851,7 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
 
             for(int i=1;i <= wanif_count;i++)
             {
-                snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.%d.ActiveLink", i);
+                snprintf(psmEntry, sizeof(psmEntry), "dmsb.wanmanager.if.%d.Selection.ActiveLink", i);
                 retPsmGet = PSM_VALUE_GET_STRING(psmEntry, activeValue);
                 if(retPsmGet == CCSP_SUCCESS && activeValue != NULL) {
 
@@ -11958,6 +11973,290 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
    }
     return 0;
 }
+
+#else
+
+static int add_qos_skb_mark(FILE *mangle_fp, int family)
+{
+    char acGetParamName[PARAM_SIZE_256]     = {0};
+    char acTmpReturnValue[PARAM_SIZE_256]   = {0};
+    char WanVIfMarkingEntry[PARAM_SIZE_128] = {0};
+    char wanInterface[PARAM_SIZE_32]        = {0};
+    char SKBMark[PARAM_SIZE_32]             = {0};
+    char DSCPMark[PARAM_SIZE_16]            = {0};
+    char MarkingName[PARAM_SIZE_16]         = {0};
+    char *endptr                            = NULL;
+    int  wanif_count                        = 0;
+    int  vlanID                             = 0;
+    int  primary_Vlan_ID                    = 0;
+    int  numVlanIfc                         = 0;
+    int  dest_port                          = 0;
+    int  noOfVifMarking                     = 0;
+    int  activeLinkIdx                      = -1;
+
+    numVlanIfc = GetTotalNoOfVirtualInterfaces();
+
+    primary_Vlan_ID = GetVirtualIfaceId(1);
+
+    if(bus_handle != NULL)
+    {
+        /* Get Wan Interface count */
+        memset(acTmpReturnValue, 0, sizeof(acTmpReturnValue));
+        if ( -1 == DmlUtopiaGetParamValues( WAN_COMPONENT_NAME, WAN_DBUS_PATH, WAN_IF_COUNT, acTmpReturnValue ) )
+        {
+            printf("[%s][%d]Failed to get WAN interface count\n", __FUNCTION__, __LINE__);
+            return -1;
+        }
+
+        wanif_count = strtol(acTmpReturnValue, &endptr, BASE_10);
+
+        /* Get active WAN interface index */
+        for(int wanif_idx = 1; wanif_idx <= wanif_count; wanif_idx++)
+        {
+            memset(acGetParamName, 0, sizeof(acGetParamName));
+            memset(acTmpReturnValue, 0, sizeof(acTmpReturnValue));
+
+            snprintf(acGetParamName, sizeof(acGetParamName), WAN_IF_ACTIVE_LINK, wanif_idx);
+            if ( -1 == DmlUtopiaGetParamValues( WAN_COMPONENT_NAME, WAN_DBUS_PATH, acGetParamName, acTmpReturnValue ) )
+            {
+                printf("[%s][%d]Failed to get [%s]\n", __FUNCTION__, __LINE__, acGetParamName);
+                return -1;
+            }
+
+            if(0 == strcmp(acTmpReturnValue, "true"))
+            {
+                activeLinkIdx = wanif_idx;
+                break;
+            }
+        }
+
+        if (-1 == activeLinkIdx)
+        {
+            printf("[%s][%d]No active interface\n", __FUNCTION__, __LINE__);
+            return -1;
+        }
+
+        /*  Get WAN interface Name */
+        memset(acGetParamName, 0, sizeof(acGetParamName));
+        memset(acTmpReturnValue, 0, sizeof(acTmpReturnValue));
+
+        snprintf(acGetParamName, sizeof(acGetParamName), WAN_IF_NAME, activeLinkIdx);
+        if ( -1 == DmlUtopiaGetParamValues( WAN_COMPONENT_NAME, WAN_DBUS_PATH, acGetParamName, acTmpReturnValue ) )
+        {
+            printf("[%s][%d]Failed to get [%s]\n", __FUNCTION__, __LINE__, acGetParamName);
+            return -1;
+        }
+
+        strncpy(wanInterface, acTmpReturnValue, sizeof(wanInterface));
+
+        for(int vlan_idx = 1; vlan_idx <= numVlanIfc; vlan_idx++)
+        {
+            /* Get VLAN ID */
+            vlanID = GetVirtualIfaceId(vlan_idx);
+
+            /*Get no of Virtual Interface Markings */
+            memset(acGetParamName, 0, sizeof(acGetParamName));
+            memset(acTmpReturnValue, 0, sizeof(acTmpReturnValue));
+
+            snprintf(acGetParamName, sizeof(acGetParamName), WAN_VIF_NOF_MARKINGS, activeLinkIdx, vlan_idx);
+            if ( -1 == DmlUtopiaGetParamValues( WAN_COMPONENT_NAME, WAN_DBUS_PATH, acGetParamName, acTmpReturnValue ) )
+            {
+                printf("[%s][%d]Failed to get [%s]\n", __FUNCTION__, __LINE__, acGetParamName);
+                return -1;
+            }
+
+            noOfVifMarking = strtol(acTmpReturnValue, &endptr, BASE_10);
+
+            for(int vIfMarkingIdx = 1; vIfMarkingIdx <= noOfVifMarking; vIfMarkingIdx++)
+            {
+                /* Get virtual interface Marking Entry */
+                memset(acGetParamName, 0, sizeof(acGetParamName));
+                memset(acTmpReturnValue, 0, sizeof(acTmpReturnValue));
+
+                snprintf(acGetParamName, sizeof(acGetParamName), WAN_VIF_MARKINGS_ENTRY, activeLinkIdx, vlan_idx, vIfMarkingIdx);
+                if ( -1 == DmlUtopiaGetParamValues( WAN_COMPONENT_NAME, WAN_DBUS_PATH, acGetParamName, acTmpReturnValue ) )
+                {
+                    printf("[%s][%d]Failed to get [%s]\n", __FUNCTION__, __LINE__, acGetParamName);
+                    return -1;
+                }
+
+                strncpy(WanVIfMarkingEntry, acTmpReturnValue, sizeof(WanVIfMarkingEntry));
+
+                /* Get SKBMark */
+                memset(acGetParamName, 0, sizeof(acGetParamName));
+                memset(acTmpReturnValue, 0, sizeof(acTmpReturnValue));
+
+                snprintf(acGetParamName, sizeof(acGetParamName), "%s.SKBMark", WanVIfMarkingEntry);
+                if ( -1 == DmlUtopiaGetParamValues( WAN_COMPONENT_NAME, WAN_DBUS_PATH, acGetParamName, acTmpReturnValue ) )
+                {
+                    printf("[%s][%d]Failed to get [%s]\n", __FUNCTION__, __LINE__, acGetParamName);
+                    return -1;
+                }
+
+                strncpy(SKBMark, acTmpReturnValue, sizeof(SKBMark));
+
+                /* Get EthernetPriorityMark */
+                memset(acGetParamName, 0, sizeof(acGetParamName));
+                memset(acTmpReturnValue, 0, sizeof(acTmpReturnValue));
+
+                snprintf(acGetParamName, sizeof(acGetParamName), "%s.DSCPMark", WanVIfMarkingEntry);
+                if ( -1 == DmlUtopiaGetParamValues( WAN_COMPONENT_NAME, WAN_DBUS_PATH, acGetParamName, acTmpReturnValue ) )
+                {
+                    printf("[%s][%d]Failed to get [%s]\n", __FUNCTION__, __LINE__, acGetParamName);
+                    return -1;
+                }
+
+                strncpy(DSCPMark, acTmpReturnValue, sizeof(DSCPMark));
+
+                /* Get Marking Name */
+                memset(acGetParamName, 0, sizeof(acGetParamName));
+                memset(acTmpReturnValue, 0, sizeof(acTmpReturnValue));
+
+                snprintf(acGetParamName, sizeof(acGetParamName), "%s.Name", WanVIfMarkingEntry);
+                if ( -1 == DmlUtopiaGetParamValues( WAN_COMPONENT_NAME, WAN_DBUS_PATH, acGetParamName, acTmpReturnValue ) )
+                {
+                    printf("[%s][%d]Failed to get [%s]\n", __FUNCTION__, __LINE__, acGetParamName);
+                    return -1;
+                }
+
+                strncpy(MarkingName, acTmpReturnValue, sizeof(MarkingName));
+
+                if(numVlanIfc > 1) { // Qos Rules for multi VLAN case
+                    if(vlanID == primary_Vlan_ID) {
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o erouter0 --set-dscp-class %s\n", DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o erouter0 --set-class 0:%s\n", SKBMark);
+                    }
+                    else {
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -o %s.%d --set-dscp-class %s\n", wanInterface, vlanID, DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -o %s.%d --set-class 0:%s\n", wanInterface, vlanID, SKBMark);
+                    }
+                }
+                else { // Qos Rules for single VLAN case
+                    if (strcmp(MarkingName, "NTP") == 0) {
+                        dest_port = 123; // for NTP
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                    }
+                }
+
+                if (strcmp(MarkingName, "DNS") == 0) {
+                    dest_port = 53; // for DNS
+                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                    dest_port = 0;
+		}
+
+                if ( strcmp(MarkingName, "HTTP") == 0 ) {
+                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -m dscp -p tcp --dport %d  -o erouter0 --dscp-class cs3 --set-dscp-class %s\n", HTTP_PORT, DSCPMark);
+                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -m dscp -p tcp --dport %d --dscp-class %s --set-class 0:%s\n", HTTP_PORT, DSCPMark, SKBMark);
+                }
+
+                if ( strcmp(MarkingName,"VOIPCTRL") == 0 || strcmp(MarkingName,"IPTVCTRL") == 0 ||
+		     strcmp(MarkingName,"VOIPMULT") == 0 || strcmp (MarkingName,"IPTVMULT") == 0 ) {
+                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -m dscp --dscp-class %s --set-class 0:%s\n", DSCPMark, SKBMark);
+                }
+
+                if ( strcmp(MarkingName,"IGMP") == 0 ) {
+                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p igmp -o erouter0 --set-dscp-class %s\n", DSCPMark);
+                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p igmp -o erouter0 --set-class 0:%s\n", SKBMark);
+                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p igmp -o brlan0 --set-dscp-class %s\n", DSCPMark);
+                }
+
+                if (family == AF_INET6) {
+                    if (strcmp(MarkingName, "DHCPv6") == 0) {
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport 547 -m u32 --u32 \"45&0xFF=0x01:0x0B\" -o erouter0 --set-dscp-class %s\n", DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport 547 -m u32 --u32 \"45&0xFF=0x01:0x0B\" -o erouter0 --set-class 0:%s\n", SKBMark);
+                    }
+                    else if (strcmp(MarkingName, "ICMPv6") == 0) {
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type router-solicitation -o erouter0 --set-dscp-class %s\n", DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p icmpv6 --icmpv6-type router-solicitation -o erouter0 --set-class 0:%s\n", SKBMark);
+                    }
+		    else if (strcmp(MarkingName, "DNSv6") == 0) {
+                        dest_port = 53; // for DNS
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\"  -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+		    }
+                    else if ( strcmp(MarkingName, "MLD") == 0 ) {
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o erouter0 --set-dscp-class %s\n", MLD_LISTENER_QUERY, DSCPMark);
+                        fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p icmpv6 --icmpv6-type %d -o erouter0 --set-class 0:%s\n",MLD_LISTENER_QUERY, SKBMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o brlan0 --set-dscp-class %s\n", MLD_LISTENER_QUERY, DSCPMark);
+
+                        //MLD v2
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o erouter0 --set-dscp-class %s\n", MLD2_LISTENER_REPORT, DSCPMark);
+                        fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p icmpv6 --icmpv6-type %d -o erouter0 --set-class 0:%s\n",MLD2_LISTENER_REPORT, SKBMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o brlan0 --set-dscp-class %s\n", MLD2_LISTENER_REPORT, DSCPMark);
+                        // MLD v1
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o erouter0 --set-dscp-class %s\n", MLD_LISTENER_REPORT, DSCPMark);
+                        fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p icmpv6 --icmpv6-type %d -o erouter0 --set-class 0:%s\n", MLD_LISTENER_REPORT, SKBMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o erouter0 --set-dscp-class %s\n", MLD_LISTENER_DONE, DSCPMark);
+                        fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p icmpv6 --icmpv6-type %d -o erouter0 --set-class 0:%s\n", MLD_LISTENER_DONE, SKBMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o brlan0 --set-dscp-class %s\n", MLD_LISTENER_REPORT, DSCPMark);
+                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o brlan0 --set-dscp-class %s\n", MLD_LISTENER_DONE, DSCPMark);
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+/* Function to get DM value */
+static int DmlUtopiaGetParamValues(
+    char *pComponent,
+    char *pBus,
+    char *pParamName,
+    char *pReturnVal)
+{
+    CCSP_MESSAGE_BUS_INFO *bus_info = (CCSP_MESSAGE_BUS_INFO *)bus_handle;
+    parameterValStruct_t **retVal;
+    char *ParamName[1];
+    int ret = 0,
+        nval;
+
+    //Assign address for get parameter name
+    ParamName[0] = pParamName;
+
+    ret = CcspBaseIf_getParameterValues(
+        bus_handle,
+        pComponent,
+        pBus,
+        ParamName,
+        1,
+        &nval,
+        &retVal);
+
+    //Copy the value
+    if (CCSP_SUCCESS == ret)
+    {
+        if (NULL != retVal[0]->parameterValue)
+        {
+            memcpy(pReturnVal, retVal[0]->parameterValue, strlen(retVal[0]->parameterValue) + 1);
+        }
+
+        if (retVal)
+        {
+            free_parameterValStruct_t(bus_handle, nval, retVal);
+        }
+
+        return 0;
+    }
+
+    if (retVal)
+    {
+        free_parameterValStruct_t(bus_handle, nval, retVal);
+    }
+
+    return -1;
+}
+#endif
+
 /*
  *  Procedure     : prepare_subtables
  *  Purpose       : prepare the iptables-restore file that establishes all
@@ -12263,20 +12562,19 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
 #endif //_HUB4_PRODUCT_REQ_ ENDS
    fprintf(nat_fp, "-A POSTROUTING -o %s -j postrouting_tolan\n", lan_ifname);
    // Packet Forwarding Rules for IPTv Start
-   char Vlan_NumOfIfs[8]={0}, mcast_if[32] = {0},  wan_physical_if[24] = {0};
-   char vlan_name[32]={0}, vlan_id[16]={0}, vlan_iptv_id[8] = {0};
+   char mcast_if[32] = {0},  wan_physical_if[24] = {0};
+   int  vlan_iptv_id = 0;
    char buf[32]={0};
-   syscfg_get(NULL, "Vlan_NumOfIfs", Vlan_NumOfIfs, sizeof(Vlan_NumOfIfs));
-   if (atoi(Vlan_NumOfIfs) > 1){
-       for(int i=1; i <= atoi(Vlan_NumOfIfs); i++){
-           snprintf(vlan_name, sizeof(vlan_name), "Vlan_%d_Name", i);
-           memset(buf, 0, sizeof(buf));
-           syscfg_get(NULL, vlan_name, buf, sizeof(buf));
+   int Vlan_NumOfIfs = 0;
+
+   Vlan_NumOfIfs = GetTotalNoOfVirtualInterfaces();
+   if (Vlan_NumOfIfs > 1){
+       for(int i=1; i <= Vlan_NumOfIfs; i++){
+           GetVirtualInterfacesName(i, buf);
            if (0 == strcmp("IPTV", buf)){
                syscfg_get(NULL, "wan_physical_ifname", wan_physical_if, sizeof(wan_physical_if));
-               snprintf(vlan_id, sizeof(vlan_id), "Vlan_%d_ID", i);
-               syscfg_get(NULL, vlan_id, vlan_iptv_id, sizeof(vlan_iptv_id));
-               snprintf(mcast_if, sizeof(mcast_if), "%s.%s", wan_physical_if, vlan_iptv_id);
+               vlan_iptv_id = GetVirtualIfaceId(i);
+               snprintf(mcast_if, sizeof(mcast_if), "%s.%d", wan_physical_if, vlan_iptv_id);
                break;
            }
        }
@@ -12659,7 +12957,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(filter_fp, "-A FORWARD -i %s -o %s -j wan2lan\n", current_wan_ifname, lan_ifname);
    fprintf(filter_fp, "-A FORWARD -i %s -o %s -j lan2wan\n", lan_ifname, current_wan_ifname);
    // Packet Forwarding Rules for IPTv Start
-   if (atoi(Vlan_NumOfIfs) > 1){
+   if (Vlan_NumOfIfs > 1){
        fprintf(filter_fp, "-A FORWARD -i %s -o %s -j wan2lan\n", mcast_if, lan_ifname);
        fprintf(filter_fp, "-A FORWARD -i %s -o %s -j lan2wan\n", lan_ifname, mcast_if);
    }
@@ -16189,3 +16487,251 @@ static int do_airtiesBlock_fhcd_topodiscovery(FILE *fp)
     FIREWALL_DEBUG("Block IPv6 multicast to be forwarded for FHCD topology discovery\n");
     fprintf(fp, "-A FORWARD -d ff02::15D/128 -j DROP\n");
 }
+
+/* Function to get total number of VLANs */
+static int GetTotalNoOfVirtualInterfaces(void)
+{
+    char paramName[PSM_SIZE_64]   = {0};
+    char *strValue                = NULL;
+    char *endptr                  = NULL;
+    int wanIfCount                = 0;
+    int activeIface               = -1;
+    int numOfVrIface              = 0;
+    int retPsmGet                 = CCSP_SUCCESS;
+
+    strcpy(paramName, "dmsb.wanmanager.wanifcount");
+    retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+    if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+    {
+        wanIfCount = strtol(strValue, &endptr, 10);
+        Ansc_FreeMemory_Callback(strValue);
+        strValue = NULL;
+    }
+
+    for(int i = 1; i <= wanIfCount; i++)
+    {
+       memset(paramName, 0, sizeof(paramName));
+       sprintf(paramName, "dmsb.wanmanager.if.%d.Selection.ActiveLink", i);
+       retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+       if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+       {
+           if(0 == strcmp(strValue, "TRUE"))
+           {
+              activeIface = i;
+
+              Ansc_FreeMemory_Callback(strValue);
+              strValue = NULL;
+
+              break;
+           }
+           Ansc_FreeMemory_Callback(strValue);
+           strValue = NULL;
+       }
+    }
+
+    if(-1 != activeIface)
+    {
+        memset(paramName, 0, sizeof(paramName));
+        sprintf(paramName, "dmsb.wanmanager.if.%d.VirtualInterfaceifcount", activeIface);
+
+        retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+        if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+        {
+            numOfVrIface = strtol(strValue, &endptr, 10);
+            Ansc_FreeMemory_Callback(strValue);
+            strValue = NULL;
+        }
+    }
+
+    return numOfVrIface;
+}
+
+/* Function to get VLAN Name */
+static void GetVirtualInterfacesName(int index, char* vlan_name)
+{
+    char paramName[PSM_SIZE_64]   = {0};
+    char *strValue                = NULL;
+    char *endptr                  = NULL;
+    int wanIfCount                = 0;
+    int activeIface               = -1;
+    int retPsmGet                 = CCSP_SUCCESS;
+
+    strcpy(paramName, "dmsb.wanmanager.wanifcount");
+    retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+    if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+    {
+        wanIfCount = strtol(strValue, &endptr, 10);
+        Ansc_FreeMemory_Callback(strValue);
+        strValue = NULL;
+    }
+
+    for(int i = 1; i <= wanIfCount; i++)
+    {
+       memset(paramName, 0, sizeof(paramName));
+       sprintf(paramName, "dmsb.wanmanager.if.%d.Selection.ActiveLink", i);
+       retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+       if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+       {
+           if(0 == strcmp(strValue, "TRUE"))
+           {
+              activeIface = i;
+
+              Ansc_FreeMemory_Callback(strValue);
+              strValue = NULL;
+
+              break;
+           }
+           Ansc_FreeMemory_Callback(strValue);
+           strValue = NULL;
+       }
+    }
+
+    if(-1 != activeIface)
+    {
+        memset(paramName, 0, sizeof(paramName));
+        sprintf(paramName, "dmsb.wanmanager.if.%d.VirtualInterface.%d.Alias", activeIface, index);
+
+        retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+        if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+        {
+            strncpy(vlan_name, strValue, sizeof(vlan_name));
+            Ansc_FreeMemory_Callback(strValue);
+            strValue = NULL;
+        }
+    }
+
+    return;
+}
+
+/* Function to get VLAN ID */
+static int GetVirtualIfaceId(int VlanIndex)
+{
+    char paramName[PSM_SIZE_64]   = {0};
+    char *strValue                = NULL;
+    char *endptr                  = NULL;
+    int wanIfCount                = 0;
+    int activeIface               = -1;
+    int numOfVrIface              = 0;
+    int retPsmGet                 = CCSP_SUCCESS;
+    int vlanInUseIndex            = -1;
+    int vlanId                    = 0;
+
+    strcpy(paramName, "dmsb.wanmanager.wanifcount");
+    retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+    if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+    {
+        wanIfCount = strtol(strValue, &endptr, 10);
+        Ansc_FreeMemory_Callback(strValue);
+        strValue = NULL;
+    }
+
+    for(int i = 1; i <= wanIfCount; i++)
+    {
+       memset(paramName, 0, sizeof(paramName));
+       sprintf(paramName, "dmsb.wanmanager.if.%d.Selection.ActiveLink", i);
+       retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+       if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+       {
+           if(0 == strcmp(strValue, "TRUE"))
+           {
+              activeIface = i;
+
+              Ansc_FreeMemory_Callback(strValue);
+              strValue = NULL;
+
+              break;
+           }
+           Ansc_FreeMemory_Callback(strValue);
+           strValue = NULL;
+       }
+    }
+
+    if(-1 != activeIface)
+    {
+        memset(paramName, 0, sizeof(paramName));
+        sprintf(paramName, "dmsb.wanmanager.if.%d.VirtualInterface.%d.VlanInUse", activeIface, VlanIndex);
+
+        retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+        if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+        {
+            sscanf(strValue, "%*[^0123456789]%d", &vlanInUseIndex);
+            Ansc_FreeMemory_Callback(strValue);
+            strValue = NULL;
+        }
+    }
+
+    if(-1 != vlanInUseIndex)
+    {
+        memset(paramName, 0, sizeof(paramName));
+        sprintf(paramName, "dmsb.vlanmanager.%d.vlanid", vlanInUseIndex);
+
+        retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+        if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+        {
+            vlanId = strtol(strValue, &endptr, 10);
+            Ansc_FreeMemory_Callback(strValue);
+            strValue = NULL;
+        }
+    }
+
+    return vlanId;
+}
+
+/* Function to get VLAN Route ID */
+static int GetVirtualInterfacesRouteId(int index)
+{
+    char paramName[PSM_SIZE_64]   = {0};
+    char *strValue                = NULL;
+    char *endptr                  = NULL;
+    int wanIfCount                = 0;
+    int activeIface               = -1;
+    int retPsmGet                 = CCSP_SUCCESS;
+    int routeID                   = 0;
+
+    strcpy(paramName, "dmsb.wanmanager.wanifcount");
+    retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+    if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+    {
+        wanIfCount = strtol(strValue, &endptr, 10);
+        Ansc_FreeMemory_Callback(strValue);
+        strValue = NULL;
+    }
+
+    for(int i = 1; i <= wanIfCount; i++)
+    {
+       memset(paramName, 0, sizeof(paramName));
+       sprintf(paramName, "dmsb.wanmanager.if.%d.Selection.ActiveLink", i);
+       retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+       if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+       {
+           if(0 == strcmp(strValue, "TRUE"))
+           {
+              activeIface = i;
+
+              Ansc_FreeMemory_Callback(strValue);
+              strValue = NULL;
+
+              break;
+           }
+           Ansc_FreeMemory_Callback(strValue);
+           strValue = NULL;
+       }
+    }
+
+    if(-1 != activeIface)
+    {
+        memset(paramName, 0, sizeof(paramName));
+        sprintf(paramName, "dmsb.wanmanager.if.%d.VirtualInterface.%d.RouteId", activeIface, index);
+
+        retPsmGet = PSM_VALUE_GET_STRING(paramName, strValue);
+        if((retPsmGet == CCSP_SUCCESS) && (strValue != NULL))
+        {
+            routeID = strtol(strValue, &endptr, 10);
+            Ansc_FreeMemory_Callback(strValue);
+            strValue = NULL;
+        }
+    }
+
+    return routeID;
+}
+
