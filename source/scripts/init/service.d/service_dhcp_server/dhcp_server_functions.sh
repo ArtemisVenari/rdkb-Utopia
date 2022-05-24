@@ -853,6 +853,17 @@ fi
        echo "bogus-priv" >> $LOCAL_DHCP_CONF
        echo "dhcp-authoritative" >> $LOCAL_DHCP_CONF
 
+       RETRY_ALGO=`syscfg get dns_retrans_algo_enabled`
+       if [ "$RETRY_ALGO" == "1" ]
+       then
+           echo "strict-order" >> $LOCAL_DHCP_CONF
+           echo "do-retrans"  >> $LOCAL_DHCP_CONF
+           echo "try-all-ns"  >> $LOCAL_DHCP_CONF
+           t1timeout=`syscfg get dns_retrans_t1`
+           t2timeout=`syscfg get dns_retrans_t2`
+           echo "dns-retransmission-timeout=:$t1timeout:$t2timeout"  >> $LOCAL_DHCP_CONF
+       fi
+
        if [ "$CAPTIVE_PORTAL_MODE" = "true" ]
        then
         # Create a temporary resolv configuration file
