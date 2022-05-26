@@ -12278,6 +12278,57 @@ static int DmlUtopiaGetParamValues(
     return -1;
 }
 #endif
+#define DNSMASQ_VENDORCLASS_FILE "/nvram/dnsmasq.vendorclass"
+#define DNSMASQ_LEASES_FILE "/nvram/dnsmasq.leases"
+
+#define STB_ARRAY_SIZE 3
+static const char *stb_vendor_prefix[STB_ARRAY_SIZE] ={"DTMR", "DTMTV", "DTWMTV"};
+
+// Get IP address of the STB given it's MAC address
+void get_ip_of_STB(char* mac, char* ip)
+{
+    FILE *fp;
+    char buf[24]={0}, cmd[128]={0};
+    snprintf(cmd, sizeof(cmd), "grep %s %s | cut -d ' ' -f 3", mac, DNSMASQ_LEASES_FILE);
+    fp = popen(cmd, "r");
+    if(!fp)
+        return;
+    fgets(buf, sizeof(buf), fp);
+    buf[strcspn(buf, "\n")] = 0;
+    strncpy(ip, buf, 24);
+    pclose(fp);
+    return;
+}
+
+// Adds firewall rules to mark NTP QoS destined for STB
+void mark_ntp_qos_STBs(FILE* mangle_fp)
+{
+    FILE *fp;
+    char mac[24]={0}, ip[24]={0}, vendor_id[64]={0}, buf[64]={0};
+    // Read vendor ids from /nvram/dnsmasq.vendorclass
+    fp = fopen(DNSMASQ_VENDORCLASS_FILE, "r");
+    if(!fp)
+        return;
+    while(fgets(buf, sizeof(buf), fp) != NULL)
+    {
+        sscanf(buf, "%s %s", mac, vendor_id);
+	for (int count = 0 ; count < STB_ARRAY_SIZE; count++)
+	{
+	    if(!strncmp(stb_vendor_prefix[count], vendor_id, strlen(stb_vendor_prefix[count])))
+	    {
+		get_ip_of_STB(mac, ip);
+		if(ip[0] != '\0')
+                {
+                     fprintf(mangle_fp, "-A POSTROUTING -d %s -o brlan0 -p udp --sport 123 -j DSCP --set-dscp-class cs3\n", ip);
+                     /* Mark 0x1, to avoid Unsetting DSCP RDKSI-7144 */
+                     fprintf(mangle_fp, "-A POSTROUTING -d %s -o brlan0 -p udp --sport 123 -m dscp --dscp-class cs3 -j MARK --set-mark 0x1\n", ip);
+                }
+	    }
+	}
+    }
+    fclose(fp);
+    return;
+}
 
 /*
  *  Procedure     : prepare_subtables
@@ -12368,12 +12419,13 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    prepare_xconf_rules(mangle_fp);
    add_qos_skb_mark(mangle_fp, AF_INET);
 
-   /* Should be the last rule in the POSTROUTUNG chain, set DSCP and p-bit to 0, Applicable only for TDG */
-   if(*partner_id != '\0')
+   if (*partner_id != '\0')
    {
        if((!strcmp(partner_id, "telekom-de")) || (!strcmp(partner_id, "telekom-dev-de")) ||
-            (!strcmp(partner_id, "telekom-de-test")))
+          (!strcmp(partner_id, "telekom-de-test")))
        {
+            mark_ntp_qos_STBs(mangle_fp);
+            /* Should be the last rule in the POSTROUTUNG chain, set DSCP and p-bit to 0, Applicable only for TDG */
             fprintf(mangle_fp, "-A POSTROUTING -m mark ! --mark 0x1 -j DSCP --set-dscp 0x0\n");
             fprintf(mangle_fp, "-A POSTROUTING -m mark ! --mark 0x1 -j CLASSIFY --set-class 0:0\n");
        }
