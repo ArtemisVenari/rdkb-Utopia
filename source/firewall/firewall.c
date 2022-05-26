@@ -11902,10 +11902,12 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
            else { // Qos Rules for single VLAN case
                if (strcmp(token, "NTP") == 0) {
                    dest_port = 123; // for NTP
-                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
-                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
-                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
-                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   fprintf(mangle_fp, "-A OUTPUT -j DSCP -p udp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A OUTPUT -j DSCP -p tcp --dport %d -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p udp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p tcp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   fprintf(mangle_fp, "-A OUTPUT -j MARK -m dscp -p udp --dport %d -o erouter0 --dscp-class %s --set-mark 0x1\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A OUTPUT -j MARK -m dscp -p tcp --dport %d -o erouter0 --dscp-class %s --set-mark 0x1\n", dest_port, DSCPMark);
 		}
 
                if (strcmp(token, "DNS") == 0) {
@@ -11914,33 +11916,41 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p udp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --dscp-class %s --set-mark 0x1\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p tcp --dport %d -m u32 --u32 \"0>>22&0x3C@8&0xFFFF=0x100\" -o erouter0 --dscp-class %s --set-mark 0x1\n", dest_port, DSCPMark);
                    dest_port = 0;
 		}
 
               if ( strcmp(token, "HTTP") == 0 ) {
                   fprintf(mangle_fp, "-A POSTROUTING -j DSCP -m dscp -p tcp --dport %d  -o erouter0 --dscp-class cs3 --set-dscp-class %s\n", HTTP_PORT, DSCPMark);
                   fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -m dscp -p tcp --dport %d --dscp-class %s --set-class 0:%s\n", HTTP_PORT, DSCPMark, SKBMark);
+                  fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p tcp --dport %d -o erouter0 --dscp-class %s --set-mark 0x1\n", HTTP_PORT, DSCPMark);
                }
 
                if ( strcmp(token,"VOIPCTRL") == 0 || strcmp(token,"IPTVCTRL") == 0 ||
 						strcmp(token,"VOIPMULT") == 0 || strcmp (token,"IPTVMULT") == 0 ) {
                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -m dscp --dscp-class %s --set-class 0:%s\n", DSCPMark, SKBMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp --dscp-class %s --set-mark 0x1\n", DSCPMark);
                }
 
                if ( strcmp(token,"IGMP") == 0 ) {
                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p igmp -o erouter0 --set-dscp-class %s\n", DSCPMark);
                    fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p igmp -o erouter0 --set-class 0:%s\n", SKBMark);
                    fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p igmp -o brlan0 --set-dscp-class %s\n", DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p igmp -o erouter0 --dscp-class %s --set-mark 0x1\n", DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p igmp -o brlan0 --dscp-class %s --set-mark 0x1\n", DSCPMark);
                }
 
                if (family == AF_INET6) {
                    if (strcmp(token, "DHCPv6") == 0) {
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p udp --dport 547 -m u32 --u32 \"45&0xFF=0x01:0x0B\" -o erouter0 --set-dscp-class %s\n", DSCPMark);
                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport 547 -m u32 --u32 \"45&0xFF=0x01:0x0B\" -o erouter0 --set-class 0:%s\n", SKBMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p udp --dport 547 -m u32 --u32 \"45&0xFF=0x01:0x0B\" -o erouter0 --dscp-class %s --set-mark 0x1\n", DSCPMark);
                    }
                    else if (strcmp(token, "ICMPv6") == 0) {
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type router-solicitation -o erouter0 --set-dscp-class %s\n", DSCPMark);
                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p icmpv6 --icmpv6-type router-solicitation -o erouter0 --set-class 0:%s\n", SKBMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type router-solicitation -o erouter0 --dscp-class %s --set-mark 0x1\n", DSCPMark);
                    }
 		   else if (strcmp(token, "DNSv6") == 0) {
                        dest_port = 53; // for DNS
@@ -11948,16 +11958,23 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p tcp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-dscp-class %s\n", dest_port, DSCPMark);
                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p udp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
                        fprintf(mangle_fp, "-A POSTROUTING -j CLASSIFY -p tcp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p udp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --dscp-class %s --set-mark 0x1\n", dest_port, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p tcp --dport %d -m u32 --u32 \"48&0xFFFF=0x100\" -o erouter0 --dscp-class %s --set-mark 0x1\n", dest_port, DSCPMark);
 			}
                    else if ( strcmp(token, "MLD") == 0 ) {
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o erouter0 --set-dscp-class %s\n", MLD_LISTENER_QUERY, DSCPMark);
                        fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p icmpv6 --icmpv6-type %d -o erouter0 --set-class 0:%s\n",MLD_LISTENER_QUERY, SKBMark);
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o brlan0 --set-dscp-class %s\n", MLD_LISTENER_QUERY, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type %d -o erouter0 --dscp-class %s --set-mark 0x1\n", MLD_LISTENER_QUERY, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type %d -o brlan0 --dscp-class %s --set-mark 0x1\n", MLD_LISTENER_QUERY, DSCPMark);
 
                        //MLD v2
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o erouter0 --set-dscp-class %s\n", MLD2_LISTENER_REPORT, DSCPMark);
                        fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p icmpv6 --icmpv6-type %d -o erouter0 --set-class 0:%s\n",MLD2_LISTENER_REPORT, SKBMark);
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o brlan0 --set-dscp-class %s\n", MLD2_LISTENER_REPORT, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type %d -o erouter0 --dscp-class %s --set-mark 0x1\n", MLD2_LISTENER_REPORT, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type %d -o brlan0 --dscp-class %s --set-mark 0x1\n", MLD2_LISTENER_REPORT, DSCPMark);
+
                        // MLD v1
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o erouter0 --set-dscp-class %s\n", MLD_LISTENER_REPORT, DSCPMark);
                        fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p icmpv6 --icmpv6-type %d -o erouter0 --set-class 0:%s\n", MLD_LISTENER_REPORT, SKBMark);
@@ -11965,6 +11982,11 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
                        fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p icmpv6 --icmpv6-type %d -o erouter0 --set-class 0:%s\n", MLD_LISTENER_DONE, SKBMark);
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o brlan0 --set-dscp-class %s\n", MLD_LISTENER_REPORT, DSCPMark);
                        fprintf(mangle_fp, "-A POSTROUTING -j DSCP -p icmpv6 --icmpv6-type %d -o brlan0 --set-dscp-class %s\n", MLD_LISTENER_DONE, DSCPMark);
+
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type %d -o erouter0 --dscp-class %s --set-mark 0x1\n", MLD_LISTENER_REPORT, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type %d -o erouter0 --dscp-class %s --set-mark 0x1\n", MLD_LISTENER_DONE, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type %d -o brlan0 --dscp-class %s --set-mark 0x1\n", MLD_LISTENER_REPORT, DSCPMark);
+                       fprintf(mangle_fp, "-A POSTROUTING -j MARK -m dscp -p icmpv6 --icmpv6-type %d -o brlan0 --dscp-class %s --set-mark 0x1\n", MLD_LISTENER_DONE, DSCPMark);
                        }
 		  }
 	   }
@@ -12271,6 +12293,11 @@ static int DmlUtopiaGetParamValues(
  */
 static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *filter_fp)
 {
+
+   static char partner_id[24];
+   memset(partner_id, 0, sizeof(partner_id));
+   syscfg_get(NULL, "PartnerID", partner_id, sizeof(partner_id));
+
    FIREWALL_DEBUG("Entering prepare_subtables \n"); 	
    int i; 
    /*
@@ -12340,6 +12367,17 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    prepare_lnf_internet_rules(mangle_fp,4);
    prepare_xconf_rules(mangle_fp);
    add_qos_skb_mark(mangle_fp, AF_INET);
+
+   /* Should be the last rule in the POSTROUTUNG chain, set DSCP and p-bit to 0, Applicable only for TDG */
+   if(*partner_id != '\0')
+   {
+       if((!strcmp(partner_id, "telekom-de")) || (!strcmp(partner_id, "telekom-dev-de")) ||
+            (!strcmp(partner_id, "telekom-de-test")))
+       {
+            fprintf(mangle_fp, "-A POSTROUTING -m mark ! --mark 0x1 -j DSCP --set-dscp 0x0\n");
+            fprintf(mangle_fp, "-A POSTROUTING -m mark ! --mark 0x1 -j CLASSIFY --set-class 0:0\n");
+       }
+   }
    mark_dedicated_routing_tables(mangle_fp);
 
 #ifdef CONFIG_BUILD_TRIGGER
@@ -14108,6 +14146,10 @@ static void do_ipv6_sn_filter(FILE* fp) {
     int i;
     char mcastAddrStr[64];
     char ifIpv6AddrKey[64];
+    static char partner_id[24];
+    memset(partner_id, 0, sizeof(partner_id));
+    syscfg_get(NULL, "PartnerID", partner_id, sizeof(partner_id));
+
     fprintf(fp, "*mangle\n");
     
    fprintf(fp, "%s\n", ":portscan - [0:0]");
@@ -14166,6 +14208,16 @@ static void do_ipv6_sn_filter(FILE* fp) {
 #endif
         add_qos_skb_mark(fp, AF_INET6);
 
+        /* Should be the last rule in the POSTROUTUNG chain, set DSCP and p-bit to 0, Applicable only for TDG */
+        if(*partner_id != '\0')
+        {
+            if((!strcmp(partner_id, "telekom-de")) || (!strcmp(partner_id, "telekom-dev-de")) ||
+               (!strcmp(partner_id, "telekom-de-test")))
+            {
+                fprintf(fp, "-A POSTROUTING -m mark ! --mark 0x1 -j DSCP --set-dscp 0x0\n");
+                fprintf(fp, "-A POSTROUTING -m mark ! --mark 0x1 -j CLASSIFY --set-class 0:0\n");
+            }
+        }
 #ifdef _COSA_INTEL_XB3_ARM_
         fprintf(fp, "-A PREROUTING -i %s -p tcp -m tcp ! --tcp-flags FIN,SYN,RST,ACK SYN -m conntrack --ctstate NEW -j DROP\n",current_wan_ifname);
         fprintf(fp, "-A PREROUTING -i %s -p tcp -m tcp ! --tcp-flags FIN,SYN,RST,ACK SYN -m conntrack --ctstate NEW -j DROP\n",ecm_wan_ifname);
