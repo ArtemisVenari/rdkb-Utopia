@@ -6361,7 +6361,7 @@ static int remote_access_set_proto(FILE *filt_fp, FILE *nat_fp, const char *port
 		fprintf(filt_fp, "-A INPUT -i %s  -p tcp -m tcp --dport %s -d %s -j DROP\n", interface, port, IPv6 );
 		}
 #endif
-        fprintf(filt_fp, "-A wan2self_mgmt -i %s %s -p tcp -m tcp --dport %s -j DROP\n", interface, src, port);
+        fprintf(filt_fp, "-A wan2self_mgmt -i %s %s -p tcp -m tcp --dport %s -j ACCEPT\n", interface, src, port);
     }
          FIREWALL_DEBUG("Exiting remote_access_set_proto\n");    
     return 0;
@@ -6514,9 +6514,9 @@ static int do_remote_access_control(FILE *nat_fp, FILE *filter_fp, int family)
             }
             else {
                 if (strcmp(startip, endip) == 0) {
-                    snprintf(srcaddr, sizeof(srcaddr), "! -s %s", startip);
+                    snprintf(srcaddr, sizeof(srcaddr), "-s %s", startip);
                 } else {
-                    snprintf(srcaddr, sizeof(srcaddr), "-m iprange ! --src-range %s-%s", startip, endip);
+                    snprintf(srcaddr, sizeof(srcaddr), "-m iprange --src-range %s-%s", startip, endip);
                 }
             }
         }
