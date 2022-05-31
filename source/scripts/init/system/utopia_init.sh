@@ -579,6 +579,7 @@ syseventd
 sleep 1 
 echo_t "[utopia][init] Setting any unset system values to default"
 apply_system_defaults
+touch /tmp/apply_system_defaults-finished
 changeFilePermissions $SYSCFG_BKUP_FILE 400
 
 echo "[utopia][init] SEC: Syscfg stored in $SYSCFG_BKUP_FILE"
