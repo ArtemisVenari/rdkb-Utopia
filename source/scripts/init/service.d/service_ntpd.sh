@@ -377,6 +377,7 @@ service_start ()
        NTP_SYNCHRONIZED=`timedatectl status | grep -i "synchronized" | cut -d ":" -f2`
        if [ " yes" = "$NTP_SYNCHRONIZED" ]; then
            touch /tmp/ntpd_synchronized
+           `dmcli eRT setv Device.NotifyComponent.SetNotifi_ParamName string NTP-STATUS,Completed`
            break
        fi
        sleep 5
