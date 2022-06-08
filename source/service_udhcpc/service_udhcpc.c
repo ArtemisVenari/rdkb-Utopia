@@ -938,6 +938,7 @@ int handle_wan(udhcpc_script_t *pinfo)
     char buf[128];
     char *mask = getenv("mask");
     char *ip = getenv("ip");
+    char broadcast[128]={0};
     char router[256];
     int result = -1;
 
@@ -947,11 +948,14 @@ int handle_wan(udhcpc_script_t *pinfo)
     if (pinfo->router)
         snprintf(router,sizeof(router),"%s",pinfo->router);
 
+    if (getenv("broadcast"))
+        snprintf(broadcast,sizeof(broadcast),"%s %s","broadcast",getenv("broadcast"));
+
     save_dhcp_offer(pinfo);
     if (pinfo->ip_util_exist)
     {
         memset(buf,0,sizeof(buf));
-        snprintf(buf,sizeof(buf),"ip addr add dev %s %s/%s broadcast %s",getenv("interface"),getenv("ip"),getenv("mask"),getenv("broadcast"));
+        snprintf(buf,sizeof(buf),"ip addr add dev %s %s/%s %s",getenv("interface"),getenv("ip"),getenv("mask"),broadcast);
         system(buf);        
         if (mask && ip)
         {
@@ -963,13 +967,6 @@ int handle_wan(udhcpc_script_t *pinfo)
         // sysevent_set(sysevent_fd, sysevent_token, "wan_service-status", "started", 0);
         //sysevent_set(sysevent_fd, sysevent_token, "wan-status", "started", 0);
     }    
-
-    if (pinfo->wan_type && !strcmp(pinfo->wan_type,"EPON"))
-    {
-	print_uptime("Waninit_complete", NULL);
-        system("touch /tmp/wan_ready");
-        print_uptime("boot_to_wan_uptime",NULL);
-    }
     else
     {
         if (ip)
@@ -979,6 +976,13 @@ int handle_wan(udhcpc_script_t *pinfo)
             system(buf);
             printf("\n %s router:%s buf: %s\n",__FUNCTION__,router,buf);
         }
+    }
+
+    if (pinfo->wan_type && !strcmp(pinfo->wan_type,"EPON"))
+    {
+	print_uptime("Waninit_complete", NULL);
+        system("touch /tmp/wan_ready");
+        print_uptime("boot_to_wan_uptime",NULL);
     }
 
     if (pinfo->box_type && strcmp("XB3",pinfo->box_type))
