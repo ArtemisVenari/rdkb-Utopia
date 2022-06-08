@@ -124,8 +124,8 @@ CHAR* IGD_pii_get_serial_number(VOID)
     /* TODO: to be implemented by OEM
 	ProductionDb_RetrieveAccess();
     ProdDb_GetSerialNumber(prodSn);*/
-    return prodSn;
-	//return "123456789001";
+    //return prodSn;
+    return "123456789001";
 }
 
 /************************************************************

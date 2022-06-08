@@ -44,6 +44,7 @@
 #define MODULE_NUMBER               "RDKB_ARM"
 #define MODULE_URL              	"http://www.cisco.com"
 #define UPC                     	"RDKB_ARM"
+#define ROOT_FRIENDLY_NAME 			"RDKB_BROADCOM"
 
 #endif
 
