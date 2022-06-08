@@ -44,6 +44,8 @@ CCSPPATH="/usr/ccsp"
 
 ls /tmp/pam_initialized* > /tmp/pam_init_status
 
+source /etc/utopia/service.d/log_capture_path.sh
+
 echo_t "*******************************************************************"
 echo_t "*                                                                  "
 echo_t "* Copyright 2014 Cisco Systems, Inc.                               "
