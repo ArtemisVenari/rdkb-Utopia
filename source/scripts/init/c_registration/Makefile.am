@@ -20,6 +20,10 @@ bin_PROGRAMS = 02_bridge 02_forwarding 02_ipv4 02_lanHandler 02_multinet 02_paro
 
 bin_PROGRAMS += 02_parodus
 
+if WITH_C_ARES
+bin_PROGRAMS += 02_naptr_parser
+endif
+
 AM_CFLAGS = -D_ANSC_LINUX
 AM_CFLAGS += -D_ANSC_USER
 AM_CFLAGS += -D_ANSC_LITTLE_ENDIAN_
@@ -85,3 +89,7 @@ AM_CFLAGS = -I$(top_srcdir)/source -I$(top_srcdir)/source/include -I$(top_srcdir
 02_parodus_SOURCES = 02_parodus.c
 10_time_sync_peer_SOURCES = 10_time_sync_peer.c
 15_dynamic_dns_SOURCES = 15_dynamic_dns.c
+
+if WITH_C_ARES
+02_naptr_parser_SOURCES = 02_naptr_parser.c
+endif

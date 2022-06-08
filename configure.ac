@@ -129,6 +129,11 @@ AC_CONFIG_FILES([
    source/service_dslite/Makefile
 ])] )
 
+AC_ARG_ENABLE(c_ares,[AS_HELP_STRING([--enable-c_ares], [enable c_ares test])])
+AC_MSG_CHECKING([whether to enable c_ares])
+AS_IF([test "x${enable_c_ares}" = "xyes" ], AC_MSG_RESULT([yes]), AC_MSG_RESULT([no]))
+AM_CONDITIONAL([WITH_C_ARES],[test "x${enable_c_ares}" = "xyes"])
+
 AC_CONFIG_FILES(
 	source/util/rpc/client/Makefile
         source/util/print_uptime/Makefile
@@ -177,6 +182,7 @@ AC_CONFIG_FILES(
 	source/scripts/init/src/apply_system_defaults/Makefile
 	source/scripts/init/src/execute_dir/Makefile
 	source/Makefile
+        source/naptr_parser/Makefile
 	Makefile
 )
 

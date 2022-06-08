@@ -109,10 +109,6 @@ prepare_pppd_ip_up_script() {
    echo "sysevent set current_wan_ifname \$1" >> $IP_UP_FILENAME
    echo "sysevent set current_wan_subnet \$PPP_SUBNET" >> $IP_UP_FILENAME
    echo "sysevent set current_wan_ipaddr \$PPP_IPADDR" >> $IP_UP_FILENAME
-   echo "sysevent set current_wan_state up" >> $IP_UP_FILENAME
-   echo "sysevent set wan-status started" >> $IP_UP_FILENAME
-   echo "sysevent set wan_service-status started" >> $IP_UP_FILENAME
-   echo "sysevent set firewall-restart NULL" >> $IP_UP_FILENAME
    if [ `syscfg get mgmt_wan_sshaccess` == "1" ]; then
        echo "sysevent set sshd-restart" >> $IP_UP_FILENAME
    fi
@@ -144,6 +140,11 @@ prepare_pppd_ip_up_script() {
    echo "ulog ip-up event \"sysevent set ppp_status up\"" >> $IP_UP_FILENAME
    echo "echo \"[utopia][pppd ip-up] sysevent set ppp_status up <\`date\`>\" > /dev/console" >> $IP_UP_FILENAME
    echo "killall -HUP dnsmasq" >> $IP_UP_FILENAME
+
+   echo "sysevent set current_wan_state up" >> $IP_UP_FILENAME
+   echo "sysevent set wan-status started" >> $IP_UP_FILENAME
+   echo "sysevent set wan_service-status started" >> $IP_UP_FILENAME
+   echo "sysevent set firewall-restart NULL" >> $IP_UP_FILENAME
 
    chmod 777 $IP_UP_FILENAME
 
@@ -180,6 +181,14 @@ if [ "1" = "\$IPV6_ROUTER_ADV" ] ; then
    /usr/bin/rdisc6 -e -r 6 "\$1" & #Start RS from user-space
 fi
 
+EOM
+
+   echo "killall -HUP dnsmasq" >> $IPV6_UP_FILENAME
+   chmod 777 $IPV6_UP_FILENAME
+   sysevent set current_wan_ipv6address_ll "$4"
+
+   cat << EOM >> $IPV6_UP_FILENAME
+
 SYSEVENT_CURRENT_WAN_STATE=\`sysevent get current_wan_state\`
 if [ "\$SYSEVENT_CURRENT_WAN_STATE" != "up" ] ; then
     echo "[utopia][pppd ipv6-up] Bringing wan state up in IPv6 only mode" >> /var/log/messages
@@ -190,9 +199,6 @@ if [ "\$SYSEVENT_CURRENT_WAN_STATE" != "up" ] ; then
 fi
 EOM
 
-   echo "killall -HUP dnsmasq" >> $IPV6_UP_FILENAME
-   chmod 777 $IPV6_UP_FILENAME
-   sysevent set current_wan_ipv6address_ll "$4"
 }
 
 #------------------------------------------------------------------
