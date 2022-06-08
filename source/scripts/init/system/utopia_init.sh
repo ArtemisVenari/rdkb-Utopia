@@ -977,6 +977,13 @@ if [ -f /usr/bin/inotify-minidump-watcher ];then
       /usr/bin/inotify-minidump-watcher /minidumps /lib/rdk/uploadDumps.sh  "\"\" 0" "*.dmp" &
 fi
 
+#####SIP ALG enable#####
+SIP_ALG_ENABLE=`syscfg get sip_alg_enabled`
+if [ "$SIP_ALG_ENABLE" == "true" ]; then
+      if [ $(modprobe nf_nat_sip) ]; then
+          echo_t " [utopia][init] Error in loading sip modules"
+      fi
+fi
 #####guest_ebtable.sh is called ##############
 /etc/utopia/service.d/guest_ebtable.sh
 
