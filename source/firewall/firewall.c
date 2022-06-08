@@ -5506,7 +5506,7 @@ static int do_wan_nat_lan_clients(FILE *fp)
      if(!IS_EMPTY_STRING(natip4))
      {
          snprintf(str, sizeof(str),
-               "-A postrouting_towan -s 10.0.0.0/8  -j SNAT --to-source %s", natip4);
+               "-A postrouting_towan -s %s/%s  -j SNAT --to-source %s", lan_ipaddr, lan_netmask, natip4);
          fprintf(fp, "%s\n", str);
          memset(str, 0, sizeof(str));
          snprintf(str, sizeof(str),
