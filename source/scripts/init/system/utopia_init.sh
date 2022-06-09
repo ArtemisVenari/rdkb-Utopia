@@ -593,6 +593,16 @@ echo "[utopia][init] SEC: Syscfg stored in $SYSCFG_BKUP_FILE"
 syscfg unset UpdateNvram
 syscfg commit
 
+# Disable WAN SSH during bootup
+
+WAN_SSH_ACCESS=`syscfg get mgmt_wan_sshaccess`
+LAN_SSH_ACCESS=`syscfg get mgmt_lan_sshaccess`
+if  [ ! -f "/usr/sbin/dropbear" ] || ([ "$WAN_SSH_ACCESS" = "1" ] || [ "$LAN_SSH_ACCESS" = "1" ]); then
+   syscfg set mgmt_wan_sshaccess 0
+   syscfg set mgmt_lan_sshaccess 0
+   syscfg commit
+fi
+
 #Added log to check the DHCP range corruption after system defaults applied.
 lan_ipaddr=`syscfg get lan_ipaddr`
 lan_netmask=`syscfg get lan_netmask`
@@ -748,16 +758,6 @@ ifconfig br106 192.168.106.1 netmask 255.255.255.0 up
 brctl addif br106 l2sd0.106
 ip rule add from all iif l2sd0.106 lookup erouter
 ip rule add from all iif br106 lookup erouter
-
-# Disable WAN SSH if dropbear is not present in SW
-
-WAN_SSH_ACCESS=`syscfg get mgmt_wan_sshaccess`
-LAN_SSH_ACCESS=`syscfg get mgmt_lan_sshaccess`
-if  [ ! -f "/usr/sbin/dropbear" ] && ([ "$WAN_SSH_ACCESS" = "1" ] || [ "$LAN_SSH_ACCESS" = "1" ]); then
-   syscfg set mgmt_wan_sshaccess 0
-   syscfg set mgmt_lan_sshaccess 0
-   syscfg commit
-fi
 
 # Check and set factory-reset as reboot reason 
 if [ "$FACTORY_RESET_REASON" = "true" ]; then
