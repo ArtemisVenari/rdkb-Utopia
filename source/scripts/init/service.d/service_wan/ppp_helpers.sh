@@ -356,8 +356,8 @@ prepare_pppd_options() {
 prepare_pppd_secrets() {
    echo -n > $PPP_PAP_SECRETS_FILE
    echo -n > $PPP_CHAP_SECRETS_FILE
-   CLIENT=`syscfg get wan_proto_username`
-   SECRET=`syscfg get wan_proto_password`
+   CLIENT=`psmcli get dmsb.pppmanager.ppp.if.1.username`
+   SECRET=`psmcli get dmsb.pppmanager.ppp.if.1.password`
    REMOTE_NAME=`syscfg get wan_proto_remote_name`
 
    if [ "" = "$REMOTE_NAME" ] ; then
