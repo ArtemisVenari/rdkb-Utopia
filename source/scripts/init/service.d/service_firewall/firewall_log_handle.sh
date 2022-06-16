@@ -44,10 +44,11 @@ fi
 
 /fss/gw/usr/bin/GenFWLog -gc
 
-if [ -f /usr/sbin/naptr_qos_rules.sh ]
-then
-    /usr/sbin/naptr_qos_rules.sh &
-fi
+#Commenting as it is triggering firewall restart infinitely
+#if [ -f /usr/sbin/naptr_qos_rules.sh ]
+#then
+#    /usr/sbin/naptr_qos_rules.sh &
+#fi
 
 CONN_F=`sysevent get firewall_flush_conntrack`
 WANIP=`sysevent get current_wan_ipaddr`
