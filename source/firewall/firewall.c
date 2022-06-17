@@ -15186,7 +15186,7 @@ v6GPFirewallRuleNext:
        if (prev_prefix[0] != '\0')
              fprintf(fp, "-A FORWARD -i brlan0 -o erouter0 -s %s -j REJECT --reject-with icmp6-policy-fail\n", prev_prefix);
 
-      if( current_wan_ipv6[0] == '\0' )
+      if( current_wan_ipv6[0][0] == '\0' )
       {
           fprintf(fp, "-A FORWARD -i brlan0 -o erouter0 -j DROP\n");
           fprintf(fp, "-A FORWARD -i brlan1 -o erouter0 -j DROP\n");
