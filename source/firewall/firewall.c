@@ -8718,16 +8718,12 @@ static int do_dns_route(FILE *nat_fp, int iptype) {
 				// Prerouting is bypassed for the Xi devices (Needed only for XB6)
                                 fprintf(nat_fp, "-A prerouting_fromlan -i %s ! -s 169.254.0.0/16 -p udp --dport 53 -j DNAT --to-destination %s\n",lan_ifname,lan_ipaddr);
                                 fprintf(nat_fp, "-A prerouting_fromlan -i %s ! -s 169.254.0.0/16 -p tcp --dport 53 -j DNAT --to-destination %s\n",lan_ifname,lan_ipaddr);
-                                FIREWALL_DEBUG("[XDNS] iptables -t nat -A prerouting_fromlan -p udp --dport 53 -j DNAT --to-destination %s\n" COMMA lan_ipaddr);
-                                FIREWALL_DEBUG("[XDNS] iptables -t nat -A prerouting_fromlan -p tcp --dport 53 -j DNAT --to-destination %s\n" COMMA lan_ipaddr);
-                                FIREWALL_DEBUG("### XDNS : Feature Enabled XDNS ipv4 ### \n");
+                                printf("### XDNS : Feature Enabled XDNS ipv4 ### \n");
                         #else
 
                                 fprintf(nat_fp, "-A prerouting_fromlan -i %s -p udp --dport 53 -j DNAT --to-destination %s\n",lan_ifname,lan_ipaddr);
                                 fprintf(nat_fp, "-A prerouting_fromlan -i %s -p tcp --dport 53 -j DNAT --to-destination %s\n",lan_ifname,lan_ipaddr);
-                                FIREWALL_DEBUG("[XDNS] iptables -t nat -A prerouting_fromlan -p udp --dport 53 -j DNAT --to-destination %s\n" COMMA lan_ipaddr);
-                                FIREWALL_DEBUG("[XDNS] iptables -t nat -A prerouting_fromlan -p tcp --dport 53 -j DNAT --to-destination %s\n" COMMA lan_ipaddr);
-                                FIREWALL_DEBUG("### XDNS : Feature Enabled XDNS ipv4 ### \n");
+                                printf("### XDNS : Feature Enabled XDNS ipv4 ### \n");
                         #endif
 
 			}
@@ -8741,7 +8737,7 @@ static int do_dns_route(FILE *nat_fp, int iptype) {
 			char lan_ipv6addr[INET6_ADDRSTRLEN] = {0}; // MURUGAN - XDNS : ipv6 address of the lan interface
 			memset(lan_ipv6addr, 0, INET6_ADDRSTRLEN);
 			sysevent_get(sysevent_fd, sysevent_token, "lan_ipaddr_v6", lan_ipv6addr, sizeof(lan_ipv6addr));
-			FIREWALL_DEBUG("#########  XDNS : lan_ipv6addr = \"%s\"\n" COMMA lan_ipv6addr);
+			printf("#########  XDNS : lan_ipv6addr = \"%s\"\n" COMMA lan_ipv6addr);
 			// Check if lan ipv6 is up.
 			if ('\0' != lan_ipv6addr[0] && 0 != strcmp("", lan_ipv6addr) && 0 != strcmp("::", lan_ipv6addr))
 			{
@@ -8749,15 +8745,11 @@ static int do_dns_route(FILE *nat_fp, int iptype) {
                                 // Prerouting is bypassed for the Xi devices (Needed only for XB6)
                                 fprintf(nat_fp, "-A PREROUTING -i %s ! -s 2603:2000::/20  -p udp --dport 53 -j DNAT --to-destination %s\n",lan_ifname,lan_ipv6addr);
 			        fprintf(nat_fp, "-A PREROUTING -i %s ! -s 2603:2000::/20  -p tcp --dport 53 -j DNAT --to-destination %s\n",lan_ifname,lan_ipv6addr);
-				FIREWALL_DEBUG("[XDNS] ip6tables -t nat -A PREROUTING  -s 2603:2000::/20 -p udp --dport 53 -j DNAT --to-destination %s\n" COMMA lan_ipv6addr);
-				FIREWALL_DEBUG("[XDNS] ip6tables -t nat -A PREROUTING  -s 2603:2000::/20 -p tcp --dport 53 -j DNAT --to-destination %s\n" COMMA lan_ipv6addr);
-				FIREWALL_DEBUG("### XDNS : Feature Enabled (XDNS ipv6) ### \n");
+				printf("### XDNS : Feature Enabled (XDNS ipv6) ### \n");
                         #else
 				fprintf(nat_fp, "-A PREROUTING -i %s -p udp --dport 53 -j DNAT --to-destination %s\n",lan_ifname,lan_ipv6addr);
                                 fprintf(nat_fp, "-A PREROUTING -i %s -p tcp --dport 53 -j DNAT --to-destination %s\n",lan_ifname,lan_ipv6addr);
-                                FIREWALL_DEBUG("[XDNS] ip6tables -t nat -A PREROUTING -p udp --dport 53 -j DNAT --to-destination %s\n" COMMA lan_ipv6addr);
-                                FIREWALL_DEBUG("[XDNS] ip6tables -t nat -A PREROUTING -p tcp --dport 53 -j DNAT --to-destination %s\n" COMMA lan_ipv6addr);
-                                FIREWALL_DEBUG("### XDNS : Feature Enabled (XDNS ipv6) ### \n");
+                                printf("### XDNS : Feature Enabled (XDNS ipv6) ### \n");
                         #endif
 			}
 			else
@@ -8977,7 +8969,7 @@ memset(buf, 0, sizeof(buf));
         	{
 			if(count == 0){
 			numDev = atoi(buf);            		
-			FIREWALL_DEBUG("numDev = %d \n" COMMA numDev);
+			printf("numDev = %d \n" COMMA numDev);
 			*devCount = numDev;
 			devMacs = (devMacSt *)calloc(numDev,sizeof(devMacSt));
 			dev = devMacs;
@@ -8986,7 +8978,7 @@ memset(buf, 0, sizeof(buf));
 			{
 				memset(devMacs->mac, 0, sizeof(devMacs->mac));
 				strncpy(devMacs->mac,buf,17);		
-				FIREWALL_DEBUG("devMacs->mac = %s \n" COMMA devMacs->mac);
+				printf("devMacs->mac = %s \n" COMMA devMacs->mac);
 				++devMacs;
 			}
 			count++;
