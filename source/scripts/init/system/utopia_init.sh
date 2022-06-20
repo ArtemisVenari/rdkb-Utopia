@@ -346,7 +346,7 @@ fi
 
 # model check and ethswctl commands execution
 model=`grep "imagename" /version.txt | awk -F'_v' '{print $1}' | awk -F':' '{print $2}'`
-if [ "$model" == "DGA4333" -o "$model" = "FAST5386" ]; then
+if [ "$model" == "DGA4333" -o "$model" = "FAST5386" -o "$model" = "SMART5TYPA"]; then
     ethswctl -c wan -i eth0 -o enable
 elif [ "$model" == "FGA2233" -o "$model" = "FAST5670DT" ]; then
     ethswctl -c softswitch -i eth4 -o enable
