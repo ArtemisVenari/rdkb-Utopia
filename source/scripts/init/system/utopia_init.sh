@@ -535,6 +535,9 @@ if [ "$BOX_TYPE" = "TCH" ];then
 elif [ "$BOX_TYPE" = "SGC" ];then
        rdkf-fd get client-cert > /certs/client.crt
        rdkf-fd get client-priv-key > /certs/client.key
+elif [ "$BOX_TYPE" = "ARCA" ];then
+       rdkf-fd get client-cert > /certs/client.crt
+       rdkf-fd get client-priv-key > /certs/client.key
 else
        cp /nvram/client.crt /certs/client.crt
        cp /nvram/client.key /certs/client.key
