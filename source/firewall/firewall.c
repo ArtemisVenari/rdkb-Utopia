@@ -14476,6 +14476,10 @@ int prepare_ipv6_firewall(const char *fw_file)
 #if !defined(_PLATFORM_IPQ_)
 	do_ipv6_nat_table(nat_fp);
 #endif
+	if( current_wan_ipv6[0][0] != '\0' )
+	{
+	    fprintf(mangle_fp, "-A PREROUTING -d %s -p tcp --match multiport --dports 80,443 -j DROP\n",current_wan_ipv6);
+	}
 
   	if ( bEthWANEnable )
   	{
