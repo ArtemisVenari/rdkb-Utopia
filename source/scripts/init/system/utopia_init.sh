@@ -92,7 +92,7 @@ cat /proc/P-UNIT/status
 echo_t "*                                                                  "
 echo_t "*******************************************************************"
 
-echo "[utopia][init] Tweaking network parameters" > /dev/console
+echo_t "[utopia][init] Tweaking network parameters" > /dev/console
 
 KERNEL_VERSION=`uname -r | cut -c 1`
 
@@ -346,7 +346,8 @@ fi
 
 # model check and ethswctl commands execution
 model=`grep "imagename" /version.txt | awk -F'_v' '{print $1}' | awk -F':' '{print $2}'`
-if [ "$model" == "DGA4333" -o "$model" = "FAST5386" -o "$model" = "SMART5TYPA"]; then
+echo_t "utopia_init.sh model: $model"
+if [ "$model" == "DGA4333" -o "$model" = "FAST5386" -o "$model" = "SMART5TYPA" ]; then
     ethswctl -c wan -i eth0 -o enable
 elif [ "$model" == "FGA2233" -o "$model" = "FAST5670DT" ]; then
     ethswctl -c softswitch -i eth4 -o enable
