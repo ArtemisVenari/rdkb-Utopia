@@ -11,6 +11,7 @@
 #include "syscfg/syscfg.h"
 #include "sysevent/sysevent.h"
 #include "naptr_parser.h"
+#include <sys/stat.h>
 
 /******************************************************************
 ** Function     : mainLoop
@@ -270,6 +271,7 @@ int main(int argc, char **argv)
     char domainName[MAX_DOMAIN_LEN];
     char status[16];
     int err;
+    struct stat stat_record;
 
     /* Initialize syscfg db */
     if (0 != syscfg_init())
@@ -294,6 +296,21 @@ int main(int argc, char **argv)
 
     if(!(strncmp(status,"started", sizeof(status))))
     {
+
+         while(1)
+         {
+              stat("/etc/resolv.dnsmasq", &stat_record);
+              if(stat_record.st_size <= 1)
+              {
+                   APPLY_PRINT ("/etc/resolv.dnsmasq is empty \n");
+              }
+              else
+              {
+                   APPLY_PRINT (" /etc/resolv.dnsmasq is not empty \n");
+                   break;
+              }
+              sleep(5);
+         }
          syscfg_get(NULL, "naptr_domain_name", domainName, sizeof(domainName));
          if(domainName[0] == '\0')
          {
