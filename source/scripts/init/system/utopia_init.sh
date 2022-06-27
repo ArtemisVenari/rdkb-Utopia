@@ -1001,9 +1001,3 @@ if [ ! -e $SYSCFG_MOUNT/processes.list ]; then
     cp /etc/processes.list $SYSCFG_MOUNT/processes.list
 fi
 
-### Flag for dns retry algorithm, used by pppd  ###
-RETRY_ALGO=`syscfg get dns_retrans_algo_enabled`
-if [ "$RETRY_ALGO" == "1" ] ; then
-    touch /tmp/dns_retry_algo
-fi
-
