@@ -1,11 +1,4 @@
-bridge:
-  stage: build
-  only:
-    - merge_requests
-  variables:
-    MERGE_REQUEST_BRANCH: ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
-    BUILD_TARGETS: build-broadcom,build-cujo
-  trigger:
-    project: rdk-factory/software-stack/rdkb
-    branch: master
-    strategy: depend
+include:
+  - project:  rdk-factory/ci-pipeline
+    ref:      main
+    file:     pipeline-trigger/rdkb-2021q2+dt.yml
