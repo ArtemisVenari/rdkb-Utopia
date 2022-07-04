@@ -1693,7 +1693,7 @@ int backup_file (const char *bkupFile, const char *localFile)
         return -1;
   }
 
-  int fd_to = creat(bkupFile, 0666);
+  int fd_to = open(bkupFile, O_CREAT | O_RDWR | O_TRUNC | O_SYNC);
   if(fd_to < 0)
   {
     	ulog_error(ULOG_SYSTEM, UL_SYSCFG, "creat sys call failed during db backup");
@@ -1705,7 +1705,13 @@ int backup_file (const char *bkupFile, const char *localFile)
         close(fd_from);
         return -1;
   }
+
   ssize_t nwritten = write(fd_to, mem, Stat.st_size);
+  if (msync(mem, Stat.st_size, MS_SYNC | MS_INVALIDATE )) {
+      ulog_error(ULOG_SYSTEM, UL_SYSCFG, "msync call failed during db backup");
+      fprintf(stderr, "%s msync FAILED, errno:%d\n", __func__, errno);
+  }
+
   if(nwritten < Stat.st_size)
   {
     	ulog_error(ULOG_SYSTEM, UL_SYSCFG, "write system call failed during db backup");
@@ -1753,7 +1759,7 @@ int commit_to_file (const char *fname)
     int ret=0;
     syscfg_shm_ctx *ctx = syscfg_ctx;
 
-    fd = open(fname, O_CREAT | O_RDWR | O_TRUNC);
+    fd = open(fname, O_CREAT | O_RDWR | O_TRUNC | O_SYNC);
     if (-1 == fd) {
         return ERR_IO_FILE_OPEN;
     }
