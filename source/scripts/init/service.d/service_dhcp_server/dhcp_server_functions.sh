@@ -852,6 +852,7 @@ fi
        echo "domain-needed" >> $LOCAL_DHCP_CONF
        echo "bogus-priv" >> $LOCAL_DHCP_CONF
        echo "dhcp-authoritative" >> $LOCAL_DHCP_CONF
+       echo "stop-dns-rebind" >> $LOCAL_DHCP_CONF
 
        RETRY_ALGO=`syscfg get dns_retrans_algo_enabled`
        if [ "$RETRY_ALGO" == "1" ]
