@@ -46,7 +46,11 @@ prepare_lanhost_hostname()
    reload=0
    while [ $count -le $LANHOST_COUNT ]
    do
-      LANHOST_IPv6_LLA=`dmcli eRT getv Device.Hosts.Host.$count.IPv6Address.2.IPAddress |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'`                               
+      LANHOST_IPv6_number_of_entries=`dmcli eRT getv Device.Hosts.Host.$count.IPv6AddressNumberOfEntries |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'`
+      if [ $LANHOST_IPv6_number_of_entries != 0 ]; then
+         LANHOST_IPv6_LLA=`dmcli eRT getv Device.Hosts.Host.$count.IPv6Address.2.IPAddress |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'`
+      fi
+
       if [ "$LANHOST_IPv6_LLA" != "" ]; then
          LANHOST_HOSTNAME=`dmcli eRT getv Device.Hosts.Host.$count.HostName |  grep -w value: | awk '{print$5}' | sed 's/^ *//g'` 
          if [ "$LANHOST_HOSTNAME" != "" ]; then
