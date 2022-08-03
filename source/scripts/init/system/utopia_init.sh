@@ -991,8 +991,8 @@ if [ "$SIP_ALG_ENABLE" == "true" ]; then
           echo_t " [utopia][init] Error in loading sip modules"
       fi
 fi
-#####guest_ebtable.sh is called ##############
-/etc/utopia/service.d/guest_ebtable.sh
+##### custom_ebtable_rules.sh is called #####
+/etc/utopia/service.d/custom_ebtable_rules.sh
 
 ####copy procanalyzerconfig.ini from etc to nvram###
 if [ ! -e $SYSCFG_MOUNT/procanalyzerconfig.ini ]; then
