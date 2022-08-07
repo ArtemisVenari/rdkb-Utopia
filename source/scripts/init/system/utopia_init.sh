@@ -1004,3 +1004,9 @@ if [ ! -e $SYSCFG_MOUNT/processes.list ]; then
     cp /etc/processes.list $SYSCFG_MOUNT/processes.list
 fi
 
+###### Disable Packet accelerator for DSL based gateways #####
+PACKET_ACC=`syscfg get accelerator_disable`
+if [ $PACKET_ACC -eq 1 ]; then
+      echo_t " [utopia][init] Disabling packet accelerator"
+      fcctl disable && fcctl flush
+fi
