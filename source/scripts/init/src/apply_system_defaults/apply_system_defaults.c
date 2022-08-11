@@ -1652,12 +1652,11 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                             char *value = NULL;
                             unsigned char buf[128] = {0};
                             cJSON *paramObjVal = NULL;
+                            bool is_Encrypt_Param = false;
                             while( param )
                             {
                                 unsigned int i = 0;
                                 static const char* encrypted_keys[] = {
-                                    "wan_proto_username",
-                                    "wan_proto_password",
                                     "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password",
                                     "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword",
                                 };
@@ -1674,15 +1673,21 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                                     {
                                         if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf))) {
                                             APPLY_PRINT("Error in decryption of %s\n", key);
+                                            is_Encrypt_Param = true;
                                             memset(value, 0, sizeof(value));
                                         } else {
-                                            strncpy(value, buf, sizeof(buf));
+                                            is_Encrypt_Param = true;
                                         }
                                         break;
                                     }
                                 }
-
-                                if (0 != strstr (key, "dmsb."))
+                                if (is_Encrypt_Param)
+                                {
+                                    is_Encrypt_Param = false;
+                                    APPLY_PRINT("Update psm value %s for param %s\n", buf, key);
+                                    set_psm_partner_values(buf, key);
+                                }
+                                else if (0 != strstr (key, "dmsb."))
                                 {
                                     //Its PSM entry
                                     APPLY_PRINT("Update psm value %s for param %s\n", value, key);
