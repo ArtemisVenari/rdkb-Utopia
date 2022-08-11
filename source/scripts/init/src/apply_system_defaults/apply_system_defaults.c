@@ -2173,6 +2173,8 @@ if ( paramObjVal != NULL )
 				APPLY_PRINT("%s - partnerObj Object is NULL\n", __FUNCTION__ );
 			}
 		}
+                APPLY_PRINT("%s - Deleting the /nvram/.apply_partner_defaults, as partner default values are successfully applied.\n", __FUNCTION__ );
+                system( "rm -rf /nvram/.apply_partner_defaults" );
 	}
 
     //Objects that always need to be checked
