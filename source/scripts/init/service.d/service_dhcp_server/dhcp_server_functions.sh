@@ -1194,6 +1194,8 @@ fi
    # SRV & NAPTR Records
    naptr_bin_check=`which naptr_parser`
    if [ ! -z "$naptr_bin_check" ]; then
+       echo "local-ttl=3600" >> $LOCAL_DHCP_CONF
+       echo "dhcp-ttl=0" >> $LOCAL_DHCP_CONF
        echo "srv-host=_sip._udp.speedport.ip,speedport.ip,5060,10,0" >> $LOCAL_DHCP_CONF
        echo "naptr-record=speedport.ip,10,0,s,SIP+D2U,\"\",_sip._udp.speedport.ip" >> $LOCAL_DHCP_CONF
    fi
