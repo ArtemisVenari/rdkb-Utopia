@@ -12349,9 +12349,9 @@ void mark_ntp_qos_STBs(FILE* mangle_fp)
 		get_ip_of_STB(mac, ip);
 		if(ip[0] != '\0')
                 {
-                     fprintf(mangle_fp, "-A POSTROUTING -d %s -o brlan0 -p udp --sport 123 -j DSCP --set-dscp-class cs3\n", ip);
+                     fprintf(mangle_fp, "-A POSTROUTING -d %s -o brlan0 -p udp --sport 123 -j DSCP --set-dscp-class cs4\n", ip);
                      /* Mark 0x1, to avoid Unsetting DSCP RDKSI-7144 */
-                     fprintf(mangle_fp, "-A POSTROUTING -d %s -o brlan0 -p udp --sport 123 -m dscp --dscp-class cs3 -j MARK --set-mark 0x1\n", ip);
+                     fprintf(mangle_fp, "-A POSTROUTING -d %s -o brlan0 -p udp --sport 123 -m dscp --dscp-class cs4 -j MARK --set-mark 0x1\n", ip);
                 }
 	    }
 	}
