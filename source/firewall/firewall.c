@@ -15230,7 +15230,8 @@ v6GPFirewallRuleNext:
       {
           fprintf(fp, "-A FORWARD -i brlan0 -o erouter0 -j DROP\n");
           fprintf(fp, "-A FORWARD -i brlan1 -o erouter0 -j DROP\n");
-          fprintf(fp, "-A OUTPUT -o erouter0 -j DROP\n");
+          fprintf(fp, "-A OUTPUT -p udp --dport 53 -o erouter0 -j DROP\n");
+          fprintf(fp, "-A OUTPUT -p tcp -o erouter0 -j DROP\n");
       }
 
       // Basic RPF check on the egress & ingress traffic
