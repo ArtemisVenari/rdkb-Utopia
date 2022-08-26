@@ -1010,3 +1010,12 @@ if [ $PACKET_ACC -eq 1 ]; then
       echo_t " [utopia][init] Disabling packet accelerator"
       fcctl disable && fcctl flush
 fi
+
+#### Copy cert file based on PartnerID to /certs/ path ####
+PARTNER_VALUE=`syscfg get PartnerID | awk -F'telekom-' '{print $2}'`
+
+if [ "$PARTNER_VALUE" = "hu" ] || [ "$PARTNER_VALUE" = "hr" ] || [ "$PARTNER_VALUE" = "pl" ] || [ "$PARTNER_VALUE" = "de" ]; then
+      cp /usr/share/ca-certificates/ca-certs-$PARTNER_VALUE.pem /certs/ca-certs.pem
+else
+      cp /usr/share/ca-certificates/ca-certs-dev.pem /certs/ca-certs.pem
+fi
