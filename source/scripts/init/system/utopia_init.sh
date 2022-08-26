@@ -1019,3 +1019,9 @@ if [ "$PARTNER_VALUE" = "hu" ] || [ "$PARTNER_VALUE" = "hr" ] || [ "$PARTNER_VAL
 else
       cp /usr/share/ca-certificates/ca-certs-dev.pem /certs/ca-certs.pem
 fi
+
+###### Utopia Voice Initialization #####
+if [ -e /etc/utopia/utopia_voice_init.sh ]; then
+    /etc/utopia/utopia_voice_init.sh
+fi
+
