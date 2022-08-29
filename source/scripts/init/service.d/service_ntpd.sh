@@ -308,7 +308,7 @@ service_start ()
                    $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -4 -l $NTPD_LOG_NAME & sleep 120 # We have only v4 IP. Restrict to v4.
                fi
            else
-               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME  & sleep 15 # it will ensure that quick sync will exit in 15 seconds and NTP daemon will start and sync the time
+               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME  & sleep 30 # it will ensure that quick sync will exit in 30 seconds and NTP daemon will start and sync the time
            fi
        else
            echo_t "SERVICE_NTPD : Quick Sync Not Run" >> $NTPD_LOG_NAME
@@ -340,7 +340,7 @@ service_start ()
            if [ -n "$QUICK_SYNC_WAN_IP" ]; then
                # Try and Force Quick Sync to Run on a single interface
                echo_t "SERVICE_NTPD : Starting NTP Quick Sync" >> $NTPD_LOG_NAME
-               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME  & sleep 15 # it will ensure that quick sync will exit in 15 seconds and NTP daemon will start and sync the time
+               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME  & sleep 30 # it will ensure that quick sync will exit in 30 seconds and NTP daemon will start and sync the time
            else
                echo_t "SERVICE_NTPD : Quick Sync Not Run" >> $NTPD_LOG_NAME
            fi
@@ -372,10 +372,11 @@ service_start ()
 
    #touch file when ntpd is synchroinized
    NTP_SYNCHRONIZED=""
-   while [ " yes" != "$NTP_SYNCHRONIZED" ]
+   while [ "0" != "$NTP_SYNCHRONIZED" ]
    do
-       NTP_SYNCHRONIZED=`timedatectl status | grep -i "synchronized" | cut -d ":" -f2`
-       if [ " yes" = "$NTP_SYNCHRONIZED" ]; then
+       ntpstat | grep -w "synchronised"
+       NTP_SYNCHRONIZED=$?
+       if [ "0" = "$NTP_SYNCHRONIZED" ]; then
            touch /tmp/ntpd_synchronized
            `dmcli eRT setv Device.NotifyComponent.SetNotifi_ParamName string NTP-STATUS,Completed`
            break
