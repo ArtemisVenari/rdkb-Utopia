@@ -760,6 +760,7 @@ ip rule add from all iif l2sd0.106 lookup erouter
 ip rule add from all iif br106 lookup erouter
 
 # Check and set factory-reset as reboot reason 
+updateRebootReason=`syscfg get updateRebootReasonFR`
 if [ "$FACTORY_RESET_REASON" = "true" ]; then
    echo_t "[utopia][init] Detected last reboot reason as factory-reset"
    if [ -e "/usr/bin/onboarding_log" ]; then
@@ -772,6 +773,12 @@ if [ "$FACTORY_RESET_REASON" = "true" ]; then
        syscfg set X_RDKCENTRAL-COM_LastRebootReason "factory-reset"
        syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
    fi
+elif [ "$updateRebootReason" = "true" ]; then
+   syscfg unset updateRebootReasonFR
+   syscfg commit
+
+   syscfg set X_RDKCENTRAL-COM_LastRebootReason "factory-reset"
+   syscfg set X_RDKCENTRAL-COM_LastRebootCounter "1"
 else
    rebootReason=`syscfg get X_RDKCENTRAL-COM_LastRebootReason`
    rebootCounter=`syscfg get X_RDKCENTRAL-COM_LastRebootCounter`
