@@ -1657,8 +1657,6 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                             {
                                 unsigned int i = 0;
                                 static const char* encrypted_keys[] = {
-                                    "dmsb.pppmanager.ppp.if.1.username",
-                                    "dmsb.pppmanager.ppp.if.1.password",
                                     "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password",
                                     "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword",
                                 };
