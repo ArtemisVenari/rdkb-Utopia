@@ -500,6 +500,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
     char prefix[64], orig_prefix[64], lan_addr[64];
     char ipv6_wan_defrtr[16] = {0};
     char preferred_lft[16], valid_lft[16];
+    char brlan1_prev_prefix[64] = {0};
     char prev_valid_lft[16] = {0};
     unsigned int rdnsslft = 0;
 #if defined(MULTILAN_FEATURE)
@@ -1143,6 +1144,21 @@ if(!strncmp(out,"true",strlen(out)))
                             fprintf(fp, "   ipv6 nd prefix %s %s %s router-address\n", prefix, valid_lft, preferred_lft);
                     }
                 }
+
+                sysevent_get(sefd, setok, "brlan1_previous_ipv6_prefix", brlan1_prev_prefix, sizeof(brlan1_prev_prefix));
+
+#if defined (MULTILAN_FEATURE)
+                if (strlen(brlan1_prev_prefix))
+                    fprintf(fp, "   ipv6 nd prefix %s 0 0\n", brlan1_prev_prefix);
+#else
+                if (strlen(brlan1_prev_prefix) > 0)
+                {
+                    if (strncmp(dhcpv6_server_type, "1", strlen(dhcpv6_server_type) ) == 0)
+                       fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", brlan1_prev_prefix, prev_valid_lft );
+                    else
+                        fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", brlan1_prev_prefix, prev_valid_lft);
+                }
+#endif
 
         	fprintf(fp, "   ipv6 nd ra-interval 60\n"); //Set ra-interval to default 60 seconds.
                 if ( (strcmp(wan_st, "stopped") == 0) || (strcmp(ipv6_wan_defrtr, "0") == 0) || (strcmp(preferred_lft, "0") == 0) || (strcmp(valid_lft, "0") == 0) || (atoi(rtmod) != 2 && atoi(rtmod) != 3) )
