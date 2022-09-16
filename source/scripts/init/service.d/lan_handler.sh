@@ -360,11 +360,6 @@ case "$1" in
                 brctl addif $PHY_BRIDGE_IFNAME $PHY_ETH_IFNAME
                 brctl show >> /tmp/rdksi5589
             done
-            #To convert 2.5GPHY from LAN (eth5) back to WAN (eth0)
-            model=`grep "imagename" /version.txt | awk -F'_v' '{print $1}' | awk -F':' '{print $2}'`
-            if [ "$model" == "DGA4333" ]; then
-                sh /etc/convert_port.sh "WAN"
-            fi
 
             wl_ifnames=`cat /etc/wlan/apps_defaults.txt | grep -i bsd_ifnames | cut -d '=' -f 2`
             lan_ifname=`syscfg get lan_ifname`
