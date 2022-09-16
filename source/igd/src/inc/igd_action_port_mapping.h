@@ -120,17 +120,71 @@ typedef struct _PORT_MAP_ENTRY{
 
 /***************************interface function***************************/
 
+VOID IGD_update_pm_lease_time(struct upnp_device *pd, struct upnp_service *ps);
+
  /************************************************************
+ * Function: IGD_Update_Timer
+ *
+ *  Parameters:
+ *      event:  
+ *
+ *  Description:
+ *     This function update the dyn timer.
+ *
+ *  Return Values:
+ ************************************************************/
+void IGD_Update_Timer(void);
+
+/************************************************************
+ * Function: IGD_Get_Least_Lease_Time
+ *
+ *  Parameters:
+ *      event:   
+ *
+ *  Description:
+ *     This function process the least lease from all portmapping entries.
+ *
+ *  Return Values: least lease value.
+ ************************************************************/
+int IGD_Get_Least_Lease_Time(void);
+
+/************************************************************
+ * Function: IGD_InvalidateDynPortMappings
+ *
+ *  Parameters:
+ *      event:
+ *
+ *  Description:
+ *     This function will get called once timer is expired.
+ *
+ *  Return Values:
+ ************************************************************/
+int IGD_InvalidateDynPortMappings (void);
+
+/************************************************************
  * Function: IGD_get_NATRSIP_status
  *
- *  Parameters:	
- *      event: 		INOUT.  action request from upnp template 
- * 
+ *  Parameters:
+ *      event:          INOUT.  action request from upnp template
+ *
  *  Description:
- *     This function process the action "IGD_get_NATRSIP_status".  
+ *     This function process the action "IGD_get_NATRSIP_status".
  *
  *  Return Values: INT32
  *      0 if successful else error code.
+ ************************************************************/
+void IGD_Update_AccumulateTime();
+
+ /************************************************************
+ * Function: IGD_Update_AccumulateTime
+ *
+ *  Parameters:	
+ *     event: 
+ * 
+ *  Description:
+ *     This function will deduce the AccumulateTime from all the entried on addtion/deletion
+ *
+ *  Return Values:
  ************************************************************/  
 INT32 IGD_get_NATRSIP_status(INOUT struct action_event *event);
 

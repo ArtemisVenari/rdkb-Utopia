@@ -2554,7 +2554,7 @@ static void ulog_pmap (const char *prefix, portMapDyn_t *pmap)
     ulog(ULOG_CONFIG, UL_UTAPI, value);
 }
 
-static int s_get_portmapdyn_count ()
+int s_get_portmapdyn_count ()
 {
     token_t  se_token;
     int      se_fd = s_sysevent_connect(&se_token);
@@ -2591,7 +2591,7 @@ static int s_set_portmapdyn_count (int count)
 }
 
 // Add dynamic port mapping at "index" slot
-static int s_add_portmapdyn (int index, portMapDyn_t *pmap)
+int s_add_portmapdyn (int index, portMapDyn_t *pmap)
 {
     token_t  se_token;
     int      se_fd = s_sysevent_connect(&se_token);

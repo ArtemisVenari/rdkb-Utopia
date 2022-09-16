@@ -75,7 +75,7 @@
 
 //for timer
 LOCAL struct timer_function_node *timer_function_list_run_once = NULL;
-LOCAL struct timer_function_node *timer_function_list_cycle = NULL;
+struct timer_function_node *timer_function_list_cycle = NULL;
 INT32 timer_init_count = 0;
 
 LOCAL pthread_t timer_thread_id_run_once;

@@ -782,7 +782,7 @@ VOID IGD_update_pm_lease_time(struct upnp_device *pd, struct upnp_service *ps)
     }
 
     pthread_mutex_lock(&ps->service_mutex);
-    Utopia_InvalidateDynPortMappings();
+    IGD_InvalidateDynPortMappings();
     pthread_mutex_unlock(&ps->service_mutex);
 
     return;
