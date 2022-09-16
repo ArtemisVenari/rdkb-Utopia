@@ -2554,7 +2554,7 @@ static void ulog_pmap (const char *prefix, portMapDyn_t *pmap)
     ulog(ULOG_CONFIG, UL_UTAPI, value);
 }
 
-int s_get_portmapdyn_count ()
+static int s_get_portmapdyn_count ()
 {
     token_t  se_token;
     int      se_fd = s_sysevent_connect(&se_token);
@@ -2591,7 +2591,7 @@ static int s_set_portmapdyn_count (int count)
 }
 
 // Add dynamic port mapping at "index" slot
-int s_add_portmapdyn (int index, portMapDyn_t *pmap)
+static int s_add_portmapdyn (int index, portMapDyn_t *pmap)
 {
     token_t  se_token;
     int      se_fd = s_sysevent_connect(&se_token);
@@ -7778,6 +7778,11 @@ int Utopia_DelDynamicDnsClient(UtopiaContext *ctx, unsigned long ins)
     g_DynamicDnsClientCount--;
     Utopia_SetInt(ctx, UtopiaValue_DynamicDnsClientCount, g_DynamicDnsClientCount);
     return 0;
+}
+
+int Utopia_AddDynPorMappingIndex(int index, portMapDyn_t *pmap)
+{
+    return s_add_portmapdyn(index,pmap);
 }
 
 #endif

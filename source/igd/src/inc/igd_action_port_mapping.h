@@ -72,6 +72,7 @@
 /***************************data structure***********************/
 
 #define IGD_GENERAL_ERROR           -1
+#define DEFAULT_LEASE_TIME           3600
 
 typedef struct _genPortMapIndex{
     PAL_XML2S_FDMSK fieldMask;
@@ -123,7 +124,7 @@ typedef struct _PORT_MAP_ENTRY{
 VOID IGD_update_pm_lease_time(struct upnp_device *pd, struct upnp_service *ps);
 
  /************************************************************
- * Function: IGD_Update_Timer
+ * Function: IGD_update_Timer
  *
  *  Parameters:
  *      event:  
@@ -133,10 +134,10 @@ VOID IGD_update_pm_lease_time(struct upnp_device *pd, struct upnp_service *ps);
  *
  *  Return Values:
  ************************************************************/
-void IGD_Update_Timer(void);
+VOID IGD_update_Timer(VOID);
 
 /************************************************************
- * Function: IGD_Get_Least_Lease_Time
+ * Function: IGD_get_Least_Lease_Time
  *
  *  Parameters:
  *      event:   
@@ -146,7 +147,7 @@ void IGD_Update_Timer(void);
  *
  *  Return Values: least lease value.
  ************************************************************/
-int IGD_Get_Least_Lease_Time(void);
+INT32 IGD_get_Least_Lease_Time(VOID);
 
 /************************************************************
  * Function: IGD_InvalidateDynPortMappings
@@ -159,7 +160,7 @@ int IGD_Get_Least_Lease_Time(void);
  *
  *  Return Values:
  ************************************************************/
-int IGD_InvalidateDynPortMappings (void);
+INT32 IGD_InvalidateDynPortMappings(VOID);
 
 /************************************************************
  * Function: IGD_get_NATRSIP_status
@@ -173,10 +174,10 @@ int IGD_InvalidateDynPortMappings (void);
  *  Return Values: INT32
  *      0 if successful else error code.
  ************************************************************/
-void IGD_Update_AccumulateTime();
+VOID IGD_update_AccumulateTime(VOID);
 
  /************************************************************
- * Function: IGD_Update_AccumulateTime
+ * Function: IGD_update_AccumulateTime
  *
  *  Parameters:	
  *     event: 

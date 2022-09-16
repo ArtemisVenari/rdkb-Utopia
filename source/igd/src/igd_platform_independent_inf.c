@@ -960,6 +960,10 @@ INT32 IGD_pii_del_portmapping_entry( IN INT32 WanDeviceIndex,
             rc = 1;
         }
 
+        // Update the dyn timer after manual deletion
+        IGD_update_AccumulateTime();
+        IGD_update_Timer();
+
         Utopia_Free(&ctx, 0);
         PAL_LOG("igd_platform", "debug", "%s: Lock released ", __FUNCTION__);
     }

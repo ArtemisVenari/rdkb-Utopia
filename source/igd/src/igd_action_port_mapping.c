@@ -522,9 +522,19 @@ INT32 IGD_get_SpecificPortMapping_entry(INOUT struct action_event *event)
     return ret;
 }
 
+/************************************************************
+ * Function: IGD_get_Least_Lease_Time
+ *
+ *  Parameters:
+ *      event:
+ *
+ *  Description:
+ *     This function process the least lease from all portmapping entries.
+ *
+ *  Return Values: least lease value.
+ ************************************************************/
 
-// Get the least lease time from all the entries
-int IGD_Get_Least_Lease_Time()
+INT32 IGD_get_Least_Lease_Time()
 {
      int i, count;
      int least_lease;
@@ -533,12 +543,12 @@ int IGD_Get_Least_Lease_Time()
      Utopia_GetDynPortMappingCount(&count);
      if (count == 0)
      {
-        return 3600;  //return the default.
+        return DEFAULT_LEASE_TIME;  //return the default.
      }
          /* consider first element is least*/
      if (UT_SUCCESS == Utopia_GetDynPortMapping(1, &pmap))
          least_lease = pmap.lease;
-     //look for lease lease if count is > 1
+     //look for least lease if count is > 1
      for (i = 2; i <= count; i++) {
          bzero(&pmap, sizeof(pmap));
          if (UT_SUCCESS == Utopia_GetDynPortMapping(i, &pmap)) {
@@ -549,8 +559,18 @@ int IGD_Get_Least_Lease_Time()
      return least_lease;
 }
 
-//Update the elapsed time using accumulate_second
-void IGD_Update_AccumulateTime()
+/************************************************************
+ * Function: IGD_InvalidateDynPortMappings
+ *
+ *  Parameters:
+ *      event:
+ *
+ *  Description:
+ *     This function will get called once timer is expired.
+ *
+ *  Return Values:
+ ************************************************************/
+VOID IGD_update_AccumulateTime()
 {
        int count,i;
        portMapDyn_t pmap;
@@ -567,12 +587,24 @@ void IGD_Update_AccumulateTime()
            bzero(&pmap, sizeof(pmap));
            if (UT_SUCCESS == Utopia_GetDynPortMapping(i, &pmap)) {
                pmap.lease = pmap.lease - temp_node_copy->accumulate_second;
-               s_add_portmapdyn(i, &pmap);
+               Utopia_AddDynPorMappingIndex(i, &pmap);
                }
        }
 }
 
-void IGD_Update_Timer()
+ /************************************************************
+ * Function: IGD_update_Timer
+ *
+ *  Parameters:
+ *      event:
+ *
+ *  Description:
+ *     This function update the dyn timer.
+ *
+ *  Return Values:
+ ************************************************************/
+
+VOID IGD_update_Timer()
 {
         struct timer_function_node *temp_node_copy = NULL;
         extern timer_function_list_cycle;
@@ -580,14 +612,16 @@ void IGD_Update_Timer()
         if (temp_node_copy->timer_function == IGD_update_pm_lease_time)
         {
             temp_node_copy->accumulate_second = 0;
-            temp_node_copy->trigger_second = IGD_Get_Least_Lease_Time();
+            temp_node_copy->trigger_second = IGD_get_Least_Lease_Time();
         }
 
 }
-int IGD_InvalidateDynPortMappings (void)
+INT32 IGD_InvalidateDynPortMappings()
 {
-    int i,least_lease = IGD_Get_Least_Lease_Time();
-    for (i = 1; i <= s_get_portmapdyn_count(); i++) {
+    int i,least_lease,count;
+    least_lease = IGD_get_Least_Lease_Time();
+    Utopia_GetDynPortMappingCount(&count);
+    for (i = 1; i <= count; i++) {
         portMapDyn_t pmap;
         bzero(&pmap, sizeof(pmap));
         if (UT_SUCCESS == Utopia_GetDynPortMapping(i, &pmap)) {
@@ -602,11 +636,12 @@ int IGD_InvalidateDynPortMappings (void)
                 //s_firewall_restart();
              }
              else {
-                s_add_portmapdyn(i, &pmap);    /* decrement leaseDuration every second */
+                Utopia_AddDynPorMappingIndex(i, &pmap);
              }
         }
+    Utopia_GetDynPortMappingCount(&count);
     }
-    IGD_Update_Timer(); // Update the Dyn timer after deletion
+    IGD_update_Timer(); // Update the Dyn timer after deletion
     return UT_SUCCESS;
 }
 
@@ -712,9 +747,9 @@ INT32 IGD_add_PortMapping(INOUT struct action_event *event)
         }
         else
         {
-            pii_pmEntry.leaseTime = 3600;
+            pii_pmEntry.leaseTime = DEFAULT_LEASE_TIME;
         }
-        IGD_Update_AccumulateTime();
+        IGD_update_AccumulateTime();
         ret = IGD_pii_add_portmapping_entry(pIndex->wan_device_index,
                                  pIndex->wan_connection_device_index,
                                  pIndex->wan_connection_service_index,
@@ -722,7 +757,7 @@ INT32 IGD_add_PortMapping(INOUT struct action_event *event)
                                  &pii_pmEntry);
         if(ret == 0)
         {
-            IGD_Update_Timer();
+            IGD_update_Timer();
             event->request->error_code = PAL_UPNP_E_SUCCESS;
             ret = PAL_upnp_make_action(&(event->request->action_result), event->request->action_name, 
                             event->service->type, 0, NULL, PAL_UPNP_ACTION_RESPONSE);
