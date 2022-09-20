@@ -1032,3 +1032,11 @@ if [ -e /etc/utopia/utopia_voice_init.sh ]; then
     /etc/utopia/utopia_voice_init.sh
 fi
 
+#### copying the intermediate certificate based on partnerID to avoid utopia dependency in T2 component ####
+CERT_PATH="/etc/ssl/crl/RDK_Factory_S.crl"
+if [[ $PARTNER_VALUE == *"dev"* ]] || [[ $PARTNER_VALUE == *"test"* ]]; then
+    cp /etc/ssl/crl/RDK_Factory_Development_S.crl $CERT_PATH
+else
+    PARTNER_VALUE_CASE_UPPER=`echo $PARTNER_VALUE | tr '[:lower:]' '[:upper:]'`
+    cp /etc/ssl/crl/${PARTNER_VALUE_CASE_UPPER}_S.crl $CERT_PATH
+fi
