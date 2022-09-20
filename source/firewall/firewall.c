@@ -9875,6 +9875,52 @@ static int do_multinet_lan2wan_disable(FILE *filter_fp) {
 }
 #endif
 
+static int lan2wan_multinet_disable(FILE *filter_fp) {
+    char* tok = NULL;
+    char net_query[MAX_QUERY] = {0};
+    char net_resp[MAX_QUERY] = {0};
+    char net_resp2[MAX_QUERY] = {0};
+    char net_resp3[MAX_QUERY] = {0};
+    char inst_resp[MAX_QUERY] = {0};
+    char primary_inst[MAX_QUERY] = {0};
+
+    sysevent_get(sysevent_fd, sysevent_token, "ipv4-instances", inst_resp, sizeof(inst_resp));
+
+    sysevent_get(sysevent_fd, sysevent_token, "primary_lan_l3net", primary_inst, sizeof(primary_inst));
+
+    tok = strtok(inst_resp, " ");
+
+    if (tok) do {
+        // Skip primary LAN instance
+        if (strcmp(primary_inst,tok) == 0)
+            continue;
+
+        snprintf(net_query, sizeof(net_query), "ipv4_%s-status", tok);
+        net_resp[0] = 0;
+        sysevent_get(sysevent_fd, sysevent_token, net_query, net_resp, sizeof(net_resp));
+        if (strcmp("up", net_resp) != 0)
+            continue;
+
+        snprintf(net_query, sizeof(net_query), "ipv4_%s-ipv4addr", tok);
+        net_resp[0] = 0;
+        sysevent_get(sysevent_fd, sysevent_token, net_query, net_resp, sizeof(net_resp));
+
+        snprintf(net_query, sizeof(net_query), "ipv4_%s-ipv4subnet", tok);
+        net_resp2[0] = 0;
+        sysevent_get(sysevent_fd, sysevent_token, net_query, net_resp2, sizeof(net_resp2));
+
+        snprintf(net_query, sizeof(net_query), "ipv4_%s-ifname", tok);
+        net_resp3[0] = 0;
+        sysevent_get(sysevent_fd, sysevent_token, net_query, net_resp3, sizeof(net_resp3));
+
+        fprintf(filter_fp, "-A lan2wan_disable ! -s %s/%s -i %s -j DROP\n", net_resp, net_resp2,net_resp3);
+
+
+       } while ((tok = strtok(NULL, " ")) != NULL);
+
+       return 0;
+}
+
 /*
  *  Procedure     : do_lan2wan_disable
  *  Purpose       : prepare the iptables-restore file that establishes all
@@ -9915,6 +9961,13 @@ static void do_lan2wan_disable(FILE *filter_fp)
 #endif
 
     }
+    else
+    {
+        snprintf(str, sizeof(str),"-A lan2wan_disable ! -s %s/%s -i %s -j DROP", lan_ipaddr, lan_netmask, lan_ifname);
+        fprintf(filter_fp, "%s\n", str);
+        lan2wan_multinet_disable(filter_fp);
+    }
+
    FIREWALL_DEBUG("Exiting do_lan2wan_disable\n"); 
 }
 
