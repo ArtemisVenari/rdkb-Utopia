@@ -644,11 +644,46 @@ int IsValuePresentinSyscfgDB( char *param )
 	return 1;
 }
 #if defined(_DT_WAN_Manager_Enable_)
-int set_psm_partner_values(char *pValue,char *param)
+int set_psm_partner_values(char *value,char *key)
 {
-       // PSM SET API calls
-       set_psm_record(param,pValue);
-       return 0;
+    unsigned char buf[128] = {0};
+    bool is_Encrypt_Param = false;
+    unsigned int i = 0;
+    static const char* encrypted_keys[] = {
+        "dmsb.pppmanager.ppp.if.1.username",
+        "dmsb.pppmanager.ppp.if.1.password",
+        "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password",
+        "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword",
+    };
+
+    for (i = 0; i < (sizeof(encrypted_keys)/sizeof(*encrypted_keys)); i++)
+    {
+        if (!strcmp(key, encrypted_keys[i]))
+        {
+            if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf))) {
+                APPLY_PRINT("Error in decryption of %s\n", key);
+                is_Encrypt_Param = true;
+                memset(value, 0, sizeof(value));
+            } else {
+                is_Encrypt_Param = true;
+            }
+                break;
+        }
+    }
+
+    if (is_Encrypt_Param)
+    {
+        is_Encrypt_Param = false;
+        APPLY_PRINT("Update psm value %s for param %s\n", buf, key);
+        set_psm_record(key,buf);
+    }
+    else
+    {
+        APPLY_PRINT("Update psm value %s for param %s\n", value, key);
+        set_psm_record(key,value);
+    }
+
+    return 0;
 }
 #endif
 
@@ -1655,11 +1690,6 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                             bool is_Encrypt_Param = false;
                             while( param )
                             {
-                                unsigned int i = 0;
-                                static const char* encrypted_keys[] = {
-                                    "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.Password",
-                                    "dmsb.Device.Services.X_Airties_SmartWiFi.AuthConfig.ClientPassword",
-                                };
 
                                 key = param->string;
                                 cJSON * value_obj = cJSON_GetObjectItem(partnerObj, key);
@@ -1667,27 +1697,7 @@ int apply_partnerId_default_values(char *data, char *PartnerID)
                                 if(paramObjVal)
                                     value = paramObjVal->valuestring;
 
-                                for (i = 0; i < (sizeof(encrypted_keys)/sizeof(*encrypted_keys)); i++)
-                                {
-                                    if (!strcmp(key, encrypted_keys[i]))
-                                    {
-                                        if(-1 == aes_gcm_decrypt(value, strlen(value), buf, sizeof(buf))) {
-                                            APPLY_PRINT("Error in decryption of %s\n", key);
-                                            is_Encrypt_Param = true;
-                                            memset(value, 0, sizeof(value));
-                                        } else {
-                                            is_Encrypt_Param = true;
-                                        }
-                                        break;
-                                    }
-                                }
-                                if (is_Encrypt_Param)
-                                {
-                                    is_Encrypt_Param = false;
-                                    APPLY_PRINT("Update psm value %s for param %s\n", buf, key);
-                                    set_psm_partner_values(buf, key);
-                                }
-                                else if (0 != strstr (key, "dmsb."))
+                                if (0 != strstr (key, "dmsb."))
                                 {
                                     //Its PSM entry
                                     APPLY_PRINT("Update psm value %s for param %s\n", value, key);
