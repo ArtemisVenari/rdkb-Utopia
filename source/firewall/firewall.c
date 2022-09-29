@@ -14184,8 +14184,11 @@ int prepare_ipv4_firewall(const char *fw_file)
       fprintf(fp, "%s", string);
    }
    
-   fflush(fp);
-   fclose(fp);
+   if(NULL != fp)
+   {
+       fflush(fp);
+       fclose(fp);
+   }
    fclose(raw_fp);
    fclose(mangle_fp);
    fclose(nat_fp);
