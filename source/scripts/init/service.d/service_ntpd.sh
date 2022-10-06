@@ -152,6 +152,7 @@ service_start ()
    echo "restrict -6 default kod nomodify notrap noquery" >> $NTP_CONF_TMP
    echo "restrict 127.0.0.1" >> $NTP_CONF_TMP
    echo "restrict -6 ::1" >> $NTP_CONF_TMP
+   cat $NTP_CONF_TMP >> $NTP_CONF_QUICK_SYNC
 
    if [ "$SYSCFG_ntp_enabled" = "1" ]; then
        # Start NTP Config Creation with Multiple Server Setup
@@ -159,36 +160,46 @@ service_start ()
        if [ "x$SYSCFG_ntp_server1" != "x" ] && [ "x$SYSCFG_ntp_server1" != "xno_ntp_address" ]; then
            if [ "$global_address" != "" ]; then
                echo "pool -6 $SYSCFG_ntp_server1 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+               echo "pool -6 $SYSCFG_ntp_server1 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            fi
            echo "pool -4 $SYSCFG_ntp_server1 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           echo "pool -4 $SYSCFG_ntp_server1 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server2" != "x" ] && [ "x$SYSCFG_ntp_server2" != "xno_ntp_address" ]; then
            if [ "$global_address" != "" ]; then
                echo "pool -6 $SYSCFG_ntp_server2 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+               echo "pool -6 $SYSCFG_ntp_server2 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            fi
            echo "pool -4 $SYSCFG_ntp_server2 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           echo "pool -4 $SYSCFG_ntp_server2 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server3" != "x" ] && [ "x$SYSCFG_ntp_server3" != "xno_ntp_address" ]; then
            if [ "$global_address" != "" ]; then
                echo "pool -6 $SYSCFG_ntp_server3 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+               echo "pool -6 $SYSCFG_ntp_server3 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            fi
            echo "pool -4 $SYSCFG_ntp_server3 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           echo "pool -4 $SYSCFG_ntp_server3 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server4" != "x" ] && [ "x$SYSCFG_ntp_server4" != "xno_ntp_address" ]; then
            if [ "$global_address" != "" ]; then
                echo "pool -6 $SYSCFG_ntp_server4 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+               echo "pool -6 $SYSCFG_ntp_server4 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            fi
            echo "pool -4 $SYSCFG_ntp_server4 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           echo "pool -4 $SYSCFG_ntp_server4 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            VALID_SERVER="true"
        fi
        if [ "x$SYSCFG_ntp_server5" != "x" ] && [ "x$SYSCFG_ntp_server5" != "xno_ntp_address" ]; then
            if [ "$global_address" != "" ]; then
                echo "pool -6 $SYSCFG_ntp_server5 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+               echo "pool -6 $SYSCFG_ntp_server5 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            fi
            echo "pool -4 $SYSCFG_ntp_server5 true minpoll 14 maxpoll 15 iburst" >> $NTP_CONF_TMP
+           echo "pool -4 $SYSCFG_ntp_server5 true minpoll 3 maxpoll 4 iburst" >> $NTP_CONF_QUICK_SYNC
            VALID_SERVER="true"
        fi
 
@@ -225,8 +236,10 @@ service_start ()
 
        if [ "$global_address" != "" ]; then
            echo "pool -6 $SYSCFG_ntp_server1 true" >> $NTP_CONF_TMP
+           echo "pool -6 $SYSCFG_ntp_server1 true" >> $NTP_CONF_QUICK_SYNC
        fi
        echo "pool -4 $SYSCFG_ntp_server1 true" >> $NTP_CONF_TMP
+       echo "pool -4 $SYSCFG_ntp_server1 true" >> $NTP_CONF_QUICK_SYNC
 
    fi # if [ "$SYSCFG_new_ntp_enabled" = "true" ]; then
 
@@ -257,7 +270,7 @@ service_start ()
    if [ "$QUICK_SYNC_WAN_IP" != "" ]; then
        # Quick Sync doesn't allow NIC Rules in Configuration File So create Quick Sync Version Prior to writing NIC rules.
        echo_t "SERVICE_NTPD : Creating NTP Quick Sync Conf file: $NTP_CONF_QUICK_SYNC" >> $NTPD_LOG_NAME
-       cp $NTP_CONF_TMP $NTP_CONF_QUICK_SYNC  
+       # cp $NTP_CONF_TMP $NTP_CONF_QUICK_SYNC  
    fi #if [ "$QUICK_SYNC_WAN_IP" != "" ]; then
 
 #   if [ "x$BOX_TYPE" != "xHUB4" ]  && [ "x$BOX_TYPE" != "xSR300" ] && [ "x$NTPD_IMMED_PEER_SYNC" != "xtrue" ] ; then
@@ -308,7 +321,7 @@ service_start ()
                    $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -4 -l $NTPD_LOG_NAME & sleep 120 # We have only v4 IP. Restrict to v4.
                fi
            else
-               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME  & sleep 30 # it will ensure that quick sync will exit in 30 seconds and NTP daemon will start and sync the time
+               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME  & sleep 45 # it will ensure that quick sync will exit in 45 seconds and NTP daemon will start and sync the time
            fi
        else
            echo_t "SERVICE_NTPD : Quick Sync Not Run" >> $NTPD_LOG_NAME
@@ -340,7 +353,7 @@ service_start ()
            if [ -n "$QUICK_SYNC_WAN_IP" ]; then
                # Try and Force Quick Sync to Run on a single interface
                echo_t "SERVICE_NTPD : Starting NTP Quick Sync" >> $NTPD_LOG_NAME
-               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME  & sleep 30 # it will ensure that quick sync will exit in 30 seconds and NTP daemon will start and sync the time
+               $BIN -c $NTP_CONF_QUICK_SYNC --interface $QUICK_SYNC_WAN_IP -x -gq -l $NTPD_LOG_NAME  & sleep 45 # it will ensure that quick sync will exit in 45 seconds and NTP daemon will start and sync the time
            else
                echo_t "SERVICE_NTPD : Quick Sync Not Run" >> $NTPD_LOG_NAME
            fi
