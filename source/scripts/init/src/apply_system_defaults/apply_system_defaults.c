@@ -644,6 +644,28 @@ int IsValuePresentinSyscfgDB( char *param )
 	return 1;
 }
 #if defined(_DT_WAN_Manager_Enable_)
+
+bool update_psm_with_firmware(char *key)
+{
+    bool update_param = true;
+    unsigned int i = 0;
+
+    static const char* check_keys_for_update[] = {
+        "dmsb.pppmanager.ppp.if.1.username",
+        "dmsb.pppmanager.ppp.if.1.password",
+    };
+
+    for (i = 0; i < (sizeof(check_keys_for_update)/sizeof(*check_keys_for_update)); i++)
+    {
+        if (!strcmp(key, check_keys_for_update[i]))
+        {
+            update_param = false;
+            break;
+        }
+    }
+    return update_param;
+}
+
 int set_psm_partner_values(char *value,char *key)
 {
     unsigned char buf[128] = {0};
@@ -1474,8 +1496,17 @@ int compare_partner_json_param(char *partner_nvram_bs_obj,char *partner_etc_obj,
             if (0 != strstr (key, "dmsb."))
             {
                 //Its PSM entry
-                APPLY_PRINT("add psm value %s for param %s\n", value, key);
-                set_psm_partner_values(value, key);
+                bool update_psm = true;
+                update_psm = update_psm_with_firmware(key);
+                if ( update_psm )
+                {
+                    APPLY_PRINT("Update psm value %s for param %s\n", value, key);
+                    set_psm_partner_values(value, key);
+                }
+                else
+                {
+                    APPLY_PRINT("dont update psm value for param %s with new firmware value\n", key);
+                }
             }
             else
             {
