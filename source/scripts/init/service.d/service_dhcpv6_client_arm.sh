@@ -127,8 +127,11 @@ service_start()
         			ti_dhcp6c -i $WAN_INTERFACE_NAME -p $DHCPV6_PID_FILE -plugin /fss/gw/lib/libgw_dhcp6plg.so
 				echo_t "SERVICE_DHCP6C : dhcp6c PID is `cat $DHCPV6_PID_FILE`"
 			else
-				echo_t "SERVICE_DHCP6C : Starting dibbler client"
-				sh /lib/rdk/dibbler-init.sh
+                                if ([ "$BOX_TYPE" != "TCH" ] && [ "$BOX_TYPE" != "SGC" ] && [ "$BOX_TYPE" != "ARCA" ])
+                                then
+ 				    echo_t "SERVICE_DHCP6C : Starting dibbler client"
+				    sh /lib/rdk/dibbler-init.sh
+                                fi
 			fi
 			rm -f $DHCP6C_PROGRESS_FILE
 
@@ -168,7 +171,7 @@ service_stop()
         fi
  	fi
     else
-            if ([ "$BOX_TYPE" != "TCH" ] && [ "$BOX_TYPE" != "SGC" ])
+            if ([ "$BOX_TYPE" != "TCH" ] && [ "$BOX_TYPE" != "SGC" ] && [ "$BOX_TYPE" != "ARCA" ])
             then
 		$DHCPV6_BINARY stop
                 rm -f $DHCPV6_PID_FILE
