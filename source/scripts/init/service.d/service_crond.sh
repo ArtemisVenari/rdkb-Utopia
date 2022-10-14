@@ -213,6 +213,8 @@ service_start ()
         echo "$mins $hour $day * * /usr/ccsp/pam/unique_telemetry_id.sh" >> $CRONTAB_FILE
       fi
 
+      echo "0 3 * * * nice -n 19 sh /lib/rdk/DCMscript.sh 0 1" >> $CRONTAB_FILE
+
       # add a ddns watchdog trigger to be run daily
       echo "#! /bin/sh" > /etc/cron/cron.daily/ddns_daily.sh
       echo "sysevent set ddns-start " >> /etc/cron/cron.daily/ddns_daily.sh
