@@ -352,7 +352,7 @@ echo_t "utopia_init.sh model: $model"
 if [ "$model" == "DGA4333" -o "$model" = "FAST5386" -o "$model" = "SMART5TYPA" ]; then
     ethswctl -c wan -i eth0 -o enable
     sh /etc/convert_port.sh WAN
-elif [ "$model" == "FGA2233" -o "$model" = "FAST5670DT" ]; then
+elif [ "$model" == "FGA2233" -o "$model" = "FGA2235" -o "$model" = "FAST5670DT" ]; then
     ethswctl -c softswitch -i eth4 -o enable
 fi
 
