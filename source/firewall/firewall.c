@@ -10092,6 +10092,7 @@ static int do_lan2wan_helpers(FILE *raw_fp)
    if(( syscfg_get( NULL, "sip_alg_enabled", buf, sizeof( buf )) == 0) && ( strncmp( buf, "true", sizeof(buf)) == 0))
    {
        fprintf(raw_fp, "-A lan2wan_helpers -p udp --dport 5060 -j CT --helper sip\n");
+       fprintf(raw_fp, "-A lan2wan_helpers -p tcp --dport 5060 -j CT --helper sip\n");
    }
 
    FIREWALL_DEBUG("Exiting do_lan2wan_helpers\n");

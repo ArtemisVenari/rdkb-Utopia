@@ -993,9 +993,13 @@ fi
 
 #####SIP ALG enable#####
 SIP_ALG_ENABLE=`syscfg get sip_alg_enabled`
+SIP_LISTENER_ENABLE=`syscfg get sip_listener_enabled`
 if [ "$SIP_ALG_ENABLE" == "true" ]; then
       if [ $(modprobe nf_nat_sip) ]; then
           echo_t " [utopia][init] Error in loading sip modules"
+      fi
+      if [ "$SIP_LISTENER_ENABLE" == "true" ]; then
+          echo 1 > /sys/module/nf_conntrack_sip/parameters/sip_listener
       fi
 fi
 ##### guest_ebtable.sh is called #####
