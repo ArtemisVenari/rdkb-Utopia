@@ -1027,6 +1027,21 @@ else
       cp /usr/share/ca-certificates/ca-certs-$PARTNER_VALUE.pem /certs/ca-certs.pem
 fi
 
+#### Below change needs to be revisited if there is a *us partnerID for other platforams
+PARTNER_ID_TYPE=`syscfg get PartnerID | awk -F'telekom-' '{print $2}'`
+WAN_TYPE=`pspctl dump RdpaWanType`
+
+if [[ $PARTNER_ID_TYPE == *"us"* ]] && [[ $WAN_TYPE != "GBE" ]]; then
+    pspctl set RdpaWanType GBE
+    pspctl set WanOEMac EMAC5
+    pspctl set WanRate 2525
+
+    syscfg set updateRebootReasonFR true
+    syscfg commit
+
+    reboot
+fi
+
 ###### Utopia Voice Initialization #####
 if [ -e /etc/utopia/utopia_voice_init.sh ]; then
     /etc/utopia/utopia_voice_init.sh
