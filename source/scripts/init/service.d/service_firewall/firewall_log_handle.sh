@@ -37,9 +37,13 @@
 /fss/gw/usr/bin/GenFWLog -c
 /fss/gw/usr/bin/firewall $*
 
+mark=`cat /sys/module/nf_conntrack_sip/parameters/sip_rtp_connmark`
+mask=`cat /sys/module/nf_conntrack_sip/parameters/sip_rtp_connmark_mask`
+
 if [ -f /var/run/cujo/firewall-rules.sh ]
 then
     /var/run/cujo/firewall-rules.sh
+    /usr/sbin/iptables -I FORWARD -m connmark --mark $mark/$mask -j ACCEPT
 fi
 
 /fss/gw/usr/bin/GenFWLog -gc
