@@ -581,24 +581,17 @@ static int getFactoryPartnerId
 		char*                       pValue
 	)
 {
-    FILE *fp = NULL;
+    FILE *fp, *fp_prc = NULL;
+    char tp[24]={0};
 
     if(pValue == NULL)
         return -1;
 
-    fp = fopen("/nvram/PartnerID","r");
-    if(fp != NULL){
-        fscanf(fp, "%s", pValue);
-        fclose(fp);
-        return 0;
-    }
-    else
-    {
 #if defined (_XB6_PRODUCT_REQ_) || defined(_HUB4_PRODUCT_REQ_) || defined(_DT_WAN_Manager_Enable_)
 	if(0 == platform_hal_getFactoryPartnerId(pValue))
 	{
 		APPLY_PRINT("%s - %s\n",__FUNCTION__,pValue);
-		return 0;		 
+		//return 0;		 
 	}
 	else
 	{
@@ -609,7 +602,7 @@ static int getFactoryPartnerId
 			if(0 == platform_hal_getFactoryPartnerId(pValue))
 			{
 				APPLY_PRINT("%s - %s\n",__FUNCTION__,pValue);
-				return 0;
+				//return 0;
 			}
 			sleep(3);
 			count++;
@@ -618,10 +611,32 @@ static int getFactoryPartnerId
 		APPLY_PRINT("%s - Failed Get factoryPartnerId \n", __FUNCTION__);
 	}
 #endif
-    }
-
+    
     if(!strcmp(pValue,""))
         strncpy(pValue,"telekom-dev",20);
+
+    if(!strcmp(pValue, "telekom-dev")){
+        fp_prc = fopen("/proc/environment/partnerid", "r");
+    
+        if(fp_prc != NULL){
+            if (fscanf(fp_prc, "%19s", tp)!=EOF){
+                strncpy(pValue, tp, strlen(tp) + 1);
+                fclose(fp_prc);
+                return 0;
+            }
+        APPLY_PRINT(" Failed to Read PartnerID from U-Boot Env \n");
+        }
+        fp = fopen("/nvram/PartnerID","r");
+    
+        if(fp != NULL){
+            if (fscanf(fp, "%19s", tp)!= EOF){
+                strncpy(pValue, tp, strlen(tp) + 1);
+                fclose(fp);
+                return 0;
+            }
+        APPLY_PRINT(" Failed to Read PartnerID from nvram file \n");
+        }
+}
 
     return 0;
 }
