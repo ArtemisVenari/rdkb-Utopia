@@ -1511,17 +1511,8 @@ int compare_partner_json_param(char *partner_nvram_bs_obj,char *partner_etc_obj,
             if (0 != strstr (key, "dmsb."))
             {
                 //Its PSM entry
-                bool update_psm = true;
-                update_psm = update_psm_with_firmware(key);
-                if ( update_psm )
-                {
-                    APPLY_PRINT("Update psm value %s for param %s\n", value, key);
-                    set_psm_partner_values(value, key);
-                }
-                else
-                {
-                    APPLY_PRINT("dont update psm value for param %s with new firmware value\n", key);
-                }
+                APPLY_PRINT("add psm value %s for param %s\n", value, key);
+                set_psm_partner_values(value, key);
             }
             else
             {
@@ -1572,8 +1563,18 @@ int compare_partner_json_param(char *partner_nvram_bs_obj,char *partner_etc_obj,
                   if (0 != strstr ( key, "dmsb."))
                   {
                       //Its PSM entry
-                      APPLY_PRINT("Update psm value %s for param %s\n", value, key);
-                      set_psm_partner_values(value, key);
+                      bool update_psm = true;
+                      update_psm = update_psm_with_firmware(key);
+                      if ( update_psm )
+                      {
+                          APPLY_PRINT("Update psm value %s for param %s\n", value, key);
+                          set_psm_partner_values(value, key);
+                      }
+                      else
+                      {
+                          APPLY_PRINT("dont update psm value for param %s with new firmware value\n", key);
+                      }
+
                   }
                   else
                   {
