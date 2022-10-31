@@ -12324,18 +12324,26 @@ static int DmlUtopiaGetParamValues(
     char *ParamName[1];
     int ret = 0,
         nval;
+    unsigned int retryCount = 0;
 
     //Assign address for get parameter name
     ParamName[0] = pParamName;
 
-    ret = CcspBaseIf_getParameterValues(
-        bus_handle,
-        pComponent,
-        pBus,
-        ParamName,
-        1,
-        &nval,
-        &retVal);
+    do {
+        ret = CcspBaseIf_getParameterValues(
+            bus_handle,
+            pComponent,
+            pBus,
+            ParamName,
+            1,
+            &nval,
+            &retVal);
+
+        if(ret == CCSP_SUCCESS)
+              break;
+
+        usleep(500);
+    } while(retryCount++ <= 5);
 
     //Copy the value
     if (CCSP_SUCCESS == ret)
