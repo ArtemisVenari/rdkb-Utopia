@@ -956,7 +956,7 @@ fi
 
    #Option for parsing STB vendor class
    partner_id="$(syscfg get PartnerID)"
-   if [ "$partner_id" = "telekom-hr" ] || [ "$partner_id" = "telekom-dev-hr" ] || [ "$partner_id" = "telekom-hr-test" ]; then
+   if [[ $partner_id == *"hr"* ]]; then
        echo "dhcp-vendorclass=set:media,HT_STB" >> $LOCAL_DHCP_CONF
    fi
 
@@ -992,8 +992,13 @@ fi
 	  if [ $DHCP_LEASE_TIME == -1 ]; then
 	      echo "$PREFIX""dhcp-range=$DHCP_START_ADDR,$DHCP_END_ADDR,$LAN_NETMASK,infinite" >> $LOCAL_DHCP_CONF
 	  else
-  	      echo "$PREFIX""dhcp-range=$DHCP_START_ADDR,$DHCP_END_ADDR,$LAN_NETMASK,$DHCP_LEASE_TIME" >> $LOCAL_DHCP_CONF
-	  fi
+              if [[ $partner_id == *"hr"* ]]; then
+                   echo "$PREFIX""dhcp-range=net:#media,$DHCP_START_ADDR,$DHCP_END_ADDR,$LAN_NETMASK,$DHCP_LEASE_TIME" >> $LOCAL_DHCP_CONF
+                   echo "$PREFIX""dhcp-range=net:media,$DHCP_START_ADDR,$DHCP_END_ADDR,$LAN_NETMASK,45s" >> $LOCAL_DHCP_CONF
+              else
+                   echo "$PREFIX""dhcp-range=$DHCP_START_ADDR,$DHCP_END_ADDR,$LAN_NETMASK,$DHCP_LEASE_TIME" >> $LOCAL_DHCP_CONF
+              fi
+          fi
 	  if [ "1" = "$NAMESERVERENABLED" ]; then
 		  DHCP_OPTION_FOR_LAN=`get_dhcp_option_for_brlan0`
 		  echo "$PREFIX""$DHCP_OPTION_FOR_LAN" >> $LOCAL_DHCP_CONF
