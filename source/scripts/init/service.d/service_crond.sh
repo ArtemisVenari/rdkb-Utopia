@@ -212,8 +212,11 @@ service_start ()
 
         echo "$mins $hour $day * * /usr/ccsp/pam/unique_telemetry_id.sh" >> $CRONTAB_FILE
       fi
-
-      echo "0 3 * * * nice -n 19 sh /lib/rdk/DCMscript.sh 0 1" >> $CRONTAB_FILE
+      
+      #adding randomization to the minute & hour field of the DCMscript job	
+      rand_hr=`awk -v min=2 -v max=4 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
+      rand_min=`awk -v min=0 -v max=59 -v seed="$(date +%N)" 'BEGIN{srand(seed);print int(min+rand()*(max-min+1))}'`
+      echo "$rand_min $rand_hr * * * nice -n 19 sh /lib/rdk/DCMscript.sh 0 1" >> $CRONTAB_FILE
 
       # add a ddns watchdog trigger to be run daily
       echo "#! /bin/sh" > /etc/cron/cron.daily/ddns_daily.sh
