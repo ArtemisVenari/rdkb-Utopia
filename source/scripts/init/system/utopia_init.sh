@@ -1001,6 +1001,10 @@ fi
 ##### guest_ebtable.sh is called #####
 /etc/utopia/service.d/guest_ebtable.sh
 
+if [ -e /etc/utopia/service.d/airties_ebtable.sh ];then
+    /etc/utopia/service.d/airties_ebtable.sh
+fi
+
 ####copy procanalyzerconfig.ini from etc to nvram###
 if [ ! -e $SYSCFG_MOUNT/procanalyzerconfig.ini ]; then
     cp /etc/procanalyzerconfig.ini $SYSCFG_MOUNT/procanalyzerconfig.ini
