@@ -960,6 +960,29 @@ fi
        echo "dhcp-vendorclass=set:media,HT_STB" >> $LOCAL_DHCP_CONF
    fi
 
+   #Option for IPTV
+   iptvIDfound="$(sysevent get iptvIDcheck)"
+   interface="$(sysevent get iptv_ifname)"
+   if ([ "$partner_id" == *"sk"* ]) && [ $iptvIDfound -eq 1 ];then
+       dnsserver_ip1=`sysevent get ipv4_${interface}_dns_0`
+       dnsserver_ip2=`sysevent get ipv4_${interface}_dns_1`
+       IPTV_COUNT=`syscfg get IPTVDomainCount`
+       for N in $(seq 1 $IPTV_COUNT)
+       do
+           IPTV_DName=`syscfg get IPTVDomainCount_$N`
+           dhcp_options_changed=0
+           if ! grep -q  "server=/$IPTV_DName/$dnsserver_ip1" $LOCAL_DHCP_CONF
+           then
+               dhcp_options_changed=1
+           fi
+           if [ $dhcp_options_changed -eq 1 ]
+           then
+               echo "server=/$IPTV_DName/$dnsserver_ip1" >> $LOCAL_DHCP_CONF
+               echo "server=/$IPTV_DName/$dnsserver_ip2" >> $LOCAL_DHCP_CONF
+           fi
+        done
+   fi
+
    #Option for parsing plume vendor code
    if [ "$BOX_TYPE" = "XB6" ]; then
     if [ "$BOX_TYPE" != "TG3482G" ]; then
