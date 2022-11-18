@@ -723,12 +723,18 @@ static int gen_zebra_conf(int sefd, token_t setok)
             //Do not write a config line for the prefix if it's blank
             if (strlen(prefix))
             {
+                char Aflagoff[10]={0};
+                char PPPReconnect[10]={0};
+                sysevent_get(sefd, setok, "a_flag_off", Aflagoff, sizeof(Aflagoff));
+                sysevent_get(sefd, setok, "ppp_reconnected", PPPReconnect, sizeof(PPPReconnect));
                 //If WAN has stopped, advertise the prefix with lifetime 0 so LAN clients don't use it any more
-                if (strcmp(wan_st, "stopped") == 0) {
+                if ((strcmp(wan_st, "stopped") == 0) || ((strcmp(Aflagoff,"false") == 0) && (strcmp(PPPReconnect,"true") == 0))) {
                     if (strcmp(dhcpv6_server_type, "1" ) == 0)
                         fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", prefix, ra_validlft);
                     else
                         fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", prefix, ra_validlft);
+                    sysevent_set(sefd, setok, "ipv6_prefix_vldtime", "7200", 0);
+                    sysevent_set(sefd, setok, "ipv6_prefix_prdtime", "0", 0);
                 }
                 else
                 {
@@ -1129,12 +1135,18 @@ if(!strncmp(out,"true",strlen(out)))
 		memset(prefix,0,sizeof(prefix));
 		sysevent_get(sefd, setok, cmd, prefix, sizeof(prefix));
         	if (strlen(prefix) != 0) {
+                    char guest_Aflagoff[10]={0};
+                    char guest_PPPReconnect[10]={0};
+                    sysevent_get(sefd, setok, "a_flag_off", guest_Aflagoff, sizeof(guest_Aflagoff));
+                    sysevent_get(sefd, setok, "ppp_reconnected", guest_PPPReconnect, sizeof(guest_PPPReconnect));
                     //If WAN has stopped, advertise the prefix with lifetime 0 so LAN clients don't use it any more
-                    if (strcmp(wan_st, "stopped") == 0) {
+                    if ((strcmp(wan_st, "stopped") == 0) || ((strcmp(guest_Aflagoff,"false") == 0) && (strcmp(guest_PPPReconnect,"true") == 0))) {
                         if (strcmp(dhcpv6_server_type,"1") == 0 )
                            fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", prefix, ra_validlft);
                         else
                            fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", prefix, ra_validlft);
+                        sysevent_set(sefd, setok, "ipv6_prefix_vldtime", "7200", 0);
+                        sysevent_set(sefd, setok, "ipv6_prefix_prdtime", "0", 0);
                     }
                     else
                     {
