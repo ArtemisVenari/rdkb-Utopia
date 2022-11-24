@@ -732,7 +732,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
                     if (strcmp(dhcpv6_server_type, "1" ) == 0)
                         fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", prefix, ra_validlft);
                     else
-                        fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", prefix, ra_validlft);
+                        fprintf(fp, "   ipv6 nd prefix %s %s 0\n", prefix, ra_validlft);
                     sysevent_set(sefd, setok, "ipv6_prefix_vldtime", "7200", 0);
                     sysevent_set(sefd, setok, "ipv6_prefix_prdtime", "0", 0);
                 }
@@ -741,7 +741,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
                     if (strcmp(dhcpv6_server_type, "1" ) == 0)
                         fprintf(fp, "   ipv6 nd prefix %s %s %s off-link no-autoconfig\n", prefix, valid_lft, preferred_lft);
                     else
-                        fprintf(fp, "   ipv6 nd prefix %s %s %s router-address\n", prefix, valid_lft, preferred_lft);
+                        fprintf(fp, "   ipv6 nd prefix %s %s %s\n", prefix, valid_lft, preferred_lft);
                 }
             }
 
@@ -753,7 +753,7 @@ static int gen_zebra_conf(int sefd, token_t setok)
                 if (strcmp(dhcpv6_server_type, "1" ) == 0)
                     fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", orig_prefix, prev_valid_lft );
                 else
-                    fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", orig_prefix, prev_valid_lft);
+                    fprintf(fp, "   ipv6 nd prefix %s %s 0\n", orig_prefix, prev_valid_lft);
             }
 #endif
 
@@ -1144,7 +1144,7 @@ if(!strncmp(out,"true",strlen(out)))
                         if (strcmp(dhcpv6_server_type,"1") == 0 )
                            fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", prefix, ra_validlft);
                         else
-                           fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", prefix, ra_validlft);
+                           fprintf(fp, "   ipv6 nd prefix %s %s 0\n", prefix, ra_validlft);
                         sysevent_set(sefd, setok, "ipv6_prefix_vldtime", "7200", 0);
                         sysevent_set(sefd, setok, "ipv6_prefix_prdtime", "0", 0);
                     }
@@ -1153,7 +1153,7 @@ if(!strncmp(out,"true",strlen(out)))
                         if (strcmp(dhcpv6_server_type, "1" ) == 0)
                             fprintf(fp, "   ipv6 nd prefix %s %s %s off-link no-autoconfig\n", prefix, valid_lft, preferred_lft);
                         else
-                            fprintf(fp, "   ipv6 nd prefix %s %s %s router-address\n", prefix, valid_lft, preferred_lft);
+                            fprintf(fp, "   ipv6 nd prefix %s %s %s\n", prefix, valid_lft, preferred_lft);
                     }
                 }
 
@@ -1168,7 +1168,7 @@ if(!strncmp(out,"true",strlen(out)))
                     if (strncmp(dhcpv6_server_type, "1", strlen(dhcpv6_server_type) ) == 0)
                        fprintf(fp, "   ipv6 nd prefix %s %s 0 off-link no-autoconfig\n", brlan1_prev_prefix, prev_valid_lft );
                     else
-                        fprintf(fp, "   ipv6 nd prefix %s %s 0 router-address\n", brlan1_prev_prefix, prev_valid_lft);
+                        fprintf(fp, "   ipv6 nd prefix %s %s 0\n", brlan1_prev_prefix, prev_valid_lft);
                 }
 #endif
 
