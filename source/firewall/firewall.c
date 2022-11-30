@@ -934,8 +934,6 @@ void firewall_log( char* fmt, ...)
     va_end(args);
     return;
 }
-
-#ifdef _HUB4_PRODUCT_REQ_
 static int IsValidIPv4Addr(char* ip_addr_string)
 {
     int ret = 1;
@@ -961,6 +959,7 @@ static int IsValidIPv4Addr(char* ip_addr_string)
     return ret;
 }
 
+#ifdef _HUB4_PRODUCT_REQ_
 #ifdef FEATURE_MAPT
 /*
  ==========================================================================
@@ -2968,6 +2967,9 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
        isFeatureDisabled = FALSE;
    }
 #endif
+BOOL FileExist = FALSE;
+   if(IsFileExists("/tmp/lanClients"))
+        FileExist = TRUE;
 
    for (idx=1 ; idx<=count ; idx++) {
       namespace[0] = '\0';
@@ -3008,7 +3010,13 @@ static int do_single_port_forwarding(FILE *nat_fp, FILE *filter_fp, int iptype, 
            if (0 != rc || '\0' == internalclient[0] || internalclient[0] == ' ' ){
              FIREWALL_DEBUG("Port Forwarding internalclient Empty\n");
           }
-          if(IsFileExists("/tmp/lanClients"))
+	   if ('\0' == internalclient[0])
+                continue;
+
+	  if(IsValidIPv4Addr(internalclient)){
+             snprintf(toip, sizeof(toip), "%s", internalclient);
+          }
+          else if(FileExist)
           {
               snprintf(buf, sizeof(buf), "cat /tmp/lanClients | grep -E '(^|\\s)%s($|\\s)' | awk '{print $3}'",internalclient);
               if(!(lanClients = popen(buf, "r")))
