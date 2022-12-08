@@ -12529,7 +12529,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    prepare_xconf_rules(mangle_fp);
    add_qos_skb_mark(mangle_fp, AF_INET);
 
-   if (*partner_id != '\0')
+   if (*partner_id != '\0' && isWanServiceReady)
    {
        if((!strcmp(partner_id, "telekom-de")) || (!strcmp(partner_id, "telekom-dev-de")) ||
           (!strcmp(partner_id, "telekom-de-test")))
@@ -14375,7 +14375,7 @@ static void do_ipv6_sn_filter(FILE* fp) {
         add_qos_skb_mark(fp, AF_INET6);
 
         /* Should be the last rule in the POSTROUTUNG chain, set DSCP and p-bit to 0, Applicable only for TDG */
-        if(*partner_id != '\0')
+        if(*partner_id != '\0' && isWanServiceReady)
         {
             if((!strcmp(partner_id, "telekom-de")) || (!strcmp(partner_id, "telekom-dev-de")) ||
                (!strcmp(partner_id, "telekom-de-test")))

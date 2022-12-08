@@ -178,7 +178,7 @@ if [ "1" = "\$IPV6_ROUTER_ADV" ] ; then
    echo 1 > /proc/sys/net/ipv6/conf/\$1/accept_ra_dfrtr # Accept default router (metric 1024)
    echo 1 > /proc/sys/net/ipv6/conf/\$1/accept_ra_pinfo # Accept prefix information for SLAAC
    echo 1 > /proc/sys/net/ipv6/conf/\$1/autoconf     # Do SLAAC
-   /usr/bin/rdisc6 -e -r 6 "\$1" & #Start RS from user-space
+   /usr/bin/rdisc6 -e -d 48 -p 6 -r 6 "\$1" & #Start RS from user-space
 fi
 
 EOM
