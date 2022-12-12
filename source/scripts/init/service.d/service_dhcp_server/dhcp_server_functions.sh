@@ -963,7 +963,7 @@ fi
    #Option for IPTV
    iptvIDfound="$(sysevent get iptvIDcheck)"
    interface="$(sysevent get iptv_ifname)"
-   if [[ $partner_id == *"sk"* ]] && [[ $iptvIDfound -eq 1 ]]; then
+   if [[ $partner_id == *"sk"* ]]  || [[ $partner_id == *"cz"* ]] && [[ $iptvIDfound -eq 1 ]]; then
        dnsserver_ip1=`sysevent get ipv4_${interface}_dns_0`
        dnsserver_ip2=`sysevent get ipv4_${interface}_dns_1`
        IPTV_COUNT=`syscfg get IPTVDomainCount`
