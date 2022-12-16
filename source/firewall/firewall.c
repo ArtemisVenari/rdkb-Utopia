@@ -4706,6 +4706,45 @@ static int do_nonat(FILE *filter_fp)
    return(0);
 }
 
+/**
+ ================================================================
+  Voice IPv4: Create IPv4 rules based on sysevent:
+  "voice_ipv4_outbound_proxy_addresses" from telcovoicemanager
+ ================================================================
+ */
+
+static void voice_ipv4_rules(FILE *filt_fp)
+{
+    char *token;
+    int count=0,i=0,j=0;
+    char token_arr[10][128]; //array to store tokens.
+    char voice_buf[516];
+    char *saveptr = NULL;
+
+    if (0 == sysevent_get(sysevent_fd, sysevent_token, "voice_ipv4_outbound_proxy_addresses", voice_buf, sizeof(voice_buf))) {
+        if( voice_buf != NULL) {
+            token = strtok_r(voice_buf, ",",&saveptr);
+            while (token != NULL) {
+                strcpy(token_arr[count],token);
+                count++;
+                token = strtok_r(NULL, ",",&saveptr);
+            }
+            /*SIP Rule: IP,Port,Action*/
+            while(j<(count/3)){
+                if (!strcmp(token_arr[i+2],"DENY")){
+                  fprintf(filt_fp, "-A INPUT -s %s -p udp --dport %s -j %s\n", token_arr[i],token_arr[i+1],"DROP");
+                  fprintf(filt_fp, "-A INPUT -s %s -p tcp --dport %s -j %s\n", token_arr[i],token_arr[i+1],"DROP");
+                }
+                else {
+                  fprintf(filt_fp, "-A INPUT -s %s -p udp --dport %s -j %s\n", token_arr[i],token_arr[i+1],token_arr[i+2]);
+                  fprintf(filt_fp, "-A INPUT -s %s -p tcp --dport %s -j %s\n", token_arr[i],token_arr[i+1],token_arr[i+2]);
+                }
+                i=i+3; j++;
+            }
+        }
+   }
+}
+
 /*
  =================================================================
               DMZ
@@ -13824,6 +13863,7 @@ static int prepare_enabled_ipv4_firewall(FILE *raw_fp, FILE *mangle_fp, FILE *na
    do_dmz(nat_fp, filter_fp);
    do_nat_ephemeral(nat_fp);
    do_wan_nat_lan_clients(nat_fp);
+   voice_ipv4_rules(filter_fp);
 #ifdef _HUB4_PRODUCT_REQ_
 #ifdef FEATURE_MAPT
    if (isMAPTReady)
