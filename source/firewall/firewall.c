@@ -4745,6 +4745,42 @@ static void voice_ipv4_rules(FILE *filt_fp)
    }
 }
 
+/**
+================================================================
+  Voice IPv4: Create IPv4 rules based on sysevent for rtp:
+  "voice_ipv4_rtp_pinholes" from telcovoicemanager
+ ================================================================
+ */
+static void voice_ipv4_rules_for_rtp(FILE *filt_fp)
+{
+    char buffer[516];
+    char *pToken = NULL,*pToken1 = NULL ;
+    char *saveptr = NULL, *saveptr1 = NULL;
+    char token_arr[20][128];
+    int count=0,i=0,j=0;
+
+    if (0 == sysevent_get(sysevent_fd, sysevent_token, "voice_ipv4_rtp_pinholes", buffer, sizeof(buffer))) {
+        if( buffer != NULL) {
+            pToken = strtok_r(buffer, ";",&saveptr);
+            while( pToken != NULL){
+                pToken1 = strtok_r(pToken , ",",&saveptr1);
+                while (pToken1 != NULL){
+                    strcpy(token_arr[count],pToken1);
+                    count++;
+                    pToken1 = strtok_r(NULL, ",",&saveptr1);
+                }
+                /*RTP/RTCP Rule: IP,Port,Action*/
+                while(j<count/3){
+                    /*Action for rtp and rtcp: ACCEPT always*/
+                    fprintf(filt_fp, "-A INPUT -s %s -p udp --dport %s -j ACCEPT\n", token_arr[i],token_arr[i+1]);
+                    i=i+3; j++;
+                }
+                pToken = strtok_r(NULL, ";",&saveptr);
+            }
+        }
+    }
+}
+
 /*
  =================================================================
               DMZ
@@ -13864,6 +13900,7 @@ static int prepare_enabled_ipv4_firewall(FILE *raw_fp, FILE *mangle_fp, FILE *na
    do_nat_ephemeral(nat_fp);
    do_wan_nat_lan_clients(nat_fp);
    voice_ipv4_rules(filter_fp);
+   voice_ipv4_rules_for_rtp(filter_fp);
 #ifdef _HUB4_PRODUCT_REQ_
 #ifdef FEATURE_MAPT
    if (isMAPTReady)
