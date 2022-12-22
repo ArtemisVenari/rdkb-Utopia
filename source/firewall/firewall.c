@@ -12711,6 +12711,7 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
 #if defined (_XB6_PRODUCT_REQ_)
    do_ipv4_norf_captiveportalrule (nat_fp);
 #endif
+   fprintf(nat_fp, "-I PREROUTING 1 -i %s -d 224.0.0.0/4 -j ACCEPT\n", current_wan_ifname);
    fprintf(nat_fp, "-A PREROUTING -j prerouting_ephemeral\n");
    fprintf(nat_fp, "-A PREROUTING -j prerouting_mgmt_override\n");
    fprintf(nat_fp, "-A PREROUTING -i %s -j prerouting_fromlan\n", lan_ifname);
@@ -12881,6 +12882,8 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(filter_fp, "-A FORWARD -i a-mux -j ACCEPT\n");
 #endif
 #if defined(INTEL_PUMA7) || defined (_COSA_BCM_ARM_)
+   fprintf(filter_fp, "-I FORWARD 1 -i %s -d 224.0.0.0/4 -j ACCEPT\n", current_wan_ifname);
+   fprintf(filter_fp, "-I INPUT 1 -i %s -p 2 -j ACCEPT\n", current_wan_ifname);
    fprintf(filter_fp, "-A INPUT -i host0 -s 192.168.147.0/255.255.255.0 -j ACCEPT\n");
    fprintf(filter_fp, "-A OUTPUT -o host0 -d 192.168.147.0/255.255.255.0 -j ACCEPT\n");
 #endif
@@ -14990,6 +14993,8 @@ static void do_ipv6_filter_table(FILE *fp){
 
       // Accept everything from localhost
       fprintf(fp, "-A INPUT -i lo -j ACCEPT\n");
+      fprintf(fp, "-I FORWARD 1 -i %s -d ff00::0/8 -j ACCEPT",current_wan_ifname);
+      fprintf(fp, "-I INPUT 1 -i %s -p icmpv6 --icmpv6-type 130 -j ACCEPT",current_wan_ifname);
 
 #if !defined(_PLATFORM_IPQ_)
       // Block the evil routing header type 0
