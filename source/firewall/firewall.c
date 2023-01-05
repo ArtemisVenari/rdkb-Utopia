@@ -4715,34 +4715,38 @@ static int do_nonat(FILE *filter_fp)
 
 static void voice_ipv4_rules(FILE *filt_fp)
 {
-    char *token;
+    char *pToken = NULL,*pToken1 = NULL ;
     int count=0,i=0,j=0;
-    char token_arr[10][128]; //array to store tokens.
-    char voice_buf[516];
-    char *saveptr = NULL;
+    char token_arr[20][32]; //array to store tokens.
+    char voice_buf[512];
+    char *saveptr = NULL, *saveptr1 = NULL ;
 
     if (0 == sysevent_get(sysevent_fd, sysevent_token, "voice_ipv4_outbound_proxy_addresses", voice_buf, sizeof(voice_buf))) {
         if( voice_buf != NULL) {
-            token = strtok_r(voice_buf, ",",&saveptr);
-            while (token != NULL) {
-                strcpy(token_arr[count],token);
-                count++;
-                token = strtok_r(NULL, ",",&saveptr);
-            }
-            /*SIP Rule: IP,Port,Action*/
-            while(j<(count/3)){
-                if (!strcmp(token_arr[i+2],"DENY")){
-                  fprintf(filt_fp, "-A INPUT -s %s -p udp --dport %s -j %s\n", token_arr[i],token_arr[i+1],"DROP");
-                  fprintf(filt_fp, "-A INPUT -s %s -p tcp --dport %s -j %s\n", token_arr[i],token_arr[i+1],"DROP");
+            pToken = strtok_r(voice_buf, ";",&saveptr);
+            while( pToken != NULL){
+                pToken1 = strtok_r(pToken , ",",&saveptr1);
+                while (pToken1 != NULL){
+                    strncpy(token_arr[count],pToken1,sizeof(token_arr[count]));
+                    count++;
+                    pToken1 = strtok_r(NULL, ",",&saveptr1);
                 }
-                else {
-                  fprintf(filt_fp, "-A INPUT -s %s -p udp --dport %s -j %s\n", token_arr[i],token_arr[i+1],token_arr[i+2]);
-                  fprintf(filt_fp, "-A INPUT -s %s -p tcp --dport %s -j %s\n", token_arr[i],token_arr[i+1],token_arr[i+2]);
+                /*SIP Rule: IP,Port,Action*/
+                while(j<(count/3)){
+                    if (!strcmp(token_arr[i+2],"DENY")){
+                        fprintf(filt_fp, "-A INPUT -s %s -p udp --dport %s -j DROP\n", token_arr[i],token_arr[i+1]);
+                        fprintf(filt_fp, "-A INPUT -s %s -p tcp --dport %s -j DROP\n", token_arr[i],token_arr[i+1]);
+                    }
+                    else {
+                        fprintf(filt_fp, "-A INPUT -s %s -p udp --dport %s -j %s\n", token_arr[i],token_arr[i+1],token_arr[i+2]);
+                        fprintf(filt_fp, "-A INPUT -s %s -p tcp --dport %s -j %s\n", token_arr[i],token_arr[i+1],token_arr[i+2]);
+                    }
+                    i=i+3; j++;
                 }
-                i=i+3; j++;
+                pToken = strtok_r(NULL, ";",&saveptr);
             }
         }
-   }
+    }
 }
 
 /**
@@ -4753,10 +4757,10 @@ static void voice_ipv4_rules(FILE *filt_fp)
  */
 static void voice_ipv4_rules_for_rtp(FILE *filt_fp)
 {
-    char buffer[516];
+    char buffer[512];
     char *pToken = NULL,*pToken1 = NULL ;
     char *saveptr = NULL, *saveptr1 = NULL;
-    char token_arr[20][128];
+    char token_arr[20][32];
     int count=0,i=0,j=0;
 
     if (0 == sysevent_get(sysevent_fd, sysevent_token, "voice_ipv4_rtp_pinholes", buffer, sizeof(buffer))) {
@@ -4765,7 +4769,7 @@ static void voice_ipv4_rules_for_rtp(FILE *filt_fp)
             while( pToken != NULL){
                 pToken1 = strtok_r(pToken , ",",&saveptr1);
                 while (pToken1 != NULL){
-                    strcpy(token_arr[count],pToken1);
+                    strncpy(token_arr[count],pToken1,sizeof(token_arr[count]));
                     count++;
                     pToken1 = strtok_r(NULL, ",",&saveptr1);
                 }
