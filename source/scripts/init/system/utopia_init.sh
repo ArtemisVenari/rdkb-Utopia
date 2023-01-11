@@ -1057,3 +1057,9 @@ else
     PARTNER_VALUE_CASE_UPPER=`echo $PARTNER_VALUE | tr '[:lower:]' '[:upper:]'`
     cp /etc/ssl/crl/${PARTNER_VALUE_CASE_UPPER}_S.crl $CERT_PATH
 fi
+
+### Hash the password ###
+password=`rdkf-fd get device-pass`
+sha256=`echo -n "$password" | sha256sum | cut -d " " -f 1`
+
+syscfg set hash-password $sha256
