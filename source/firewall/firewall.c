@@ -14998,8 +14998,8 @@ static void do_ipv6_filter_table(FILE *fp){
 
       // Accept everything from localhost
       fprintf(fp, "-A INPUT -i lo -j ACCEPT\n");
-      fprintf(fp, "-I FORWARD 1 -i %s -d ff00::0/8 -j ACCEPT",current_wan_ifname);
-      fprintf(fp, "-I INPUT 1 -i %s -p icmpv6 --icmpv6-type 130 -j ACCEPT",current_wan_ifname);
+      fprintf(fp, "-I FORWARD 1 -i %s -d ff00::0/8 -j ACCEPT\n",current_wan_ifname);
+      fprintf(fp, "-I INPUT 1 -i %s -p icmpv6 --icmpv6-type 130 -j ACCEPT\n",current_wan_ifname);
 
 #if !defined(_PLATFORM_IPQ_)
       // Block the evil routing header type 0
