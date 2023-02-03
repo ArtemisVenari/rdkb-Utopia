@@ -12060,6 +12060,9 @@ static int add_qos_skb_mark(FILE *mangle_fp, int family)
                    fprintf(mangle_fp, "-A OUTPUT -j CLASSIFY -p tcp --dport %d -o erouter0 --set-class 0:%s\n", dest_port, SKBMark);
                    fprintf(mangle_fp, "-A OUTPUT -j MARK -m dscp -p udp --dport %d -o erouter0 --dscp-class %s --set-mark 0x1\n", dest_port, DSCPMark);
                    fprintf(mangle_fp, "-A OUTPUT -j MARK -m dscp -p tcp --dport %d -o erouter0 --dscp-class %s --set-mark 0x1\n", dest_port, DSCPMark);
+                   fprintf(mangle_fp, "-A POSTROUTING -o brlan0 -p udp --dport %d -m dscp --dscp-class cs3 -j DSCP --set-dscp-class %s\n", dest_port, DSCPMark);
+                   /* Mark 0x1, to avoid Unsetting DSCP RDKSI-7144 */
+                   fprintf(mangle_fp, "-A POSTROUTING -o brlan0 -p udp --dport %d -m dscp --dscp-class %s -j MARK --set-mark 0x1\n",dest_port, DSCPMark);
 		}
 
                if (strcmp(token, "DNS") == 0) {
