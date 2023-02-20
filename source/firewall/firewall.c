@@ -363,6 +363,8 @@ NOT_DEF:
 #include "firewall_custom.h"
 #include "secure_wrapper.h"
 
+#include <stdbool.h>
+
 #if defined (_PROPOSED_BUG_FIX_)
 #include <linux/version.h>
 #endif
@@ -911,6 +913,65 @@ static int GetVirtualInterfacesRouteId(int index);
                      utilities
  =================================================================
  */
+
+/**
+ * A firewall-module to handle QoS Parameters.
+ * @param mangle_fp
+ * @return 0 --> job DONE
+ *         -1 --> data isn't consistent
+ */
+static int setQoSFirewallParams(FILE *mangle_fp, char *pre, char *post) {
+    // Get the enable param from sysevent
+    char strEnabled[16];
+    sysevent_get(sysevent_fd, sysevent_token, "QOS_enabled", strEnabled, sizeof(strEnabled));
+
+    bool enabled = false;
+
+    if (strlen(strEnabled) <= 1) {
+        return -1;
+    } else {
+        if (strcmp(strEnabled, "true") == 0) {
+            enabled = true;
+        }
+    }
+
+    // Get the mac address from sysevent
+    char MAC[48];
+    sysevent_get(sysevent_fd, sysevent_token, "QOS_MAC", MAC, sizeof(MAC));
+
+    // Get the dscp value from sysevent
+    char strDSCP[8];
+    sysevent_get(sysevent_fd, sysevent_token, "QOS_DSCP", strDSCP, sizeof(strDSCP));
+
+    // Get the connmark from sysevent
+    char CONNMARK[32];
+    sysevent_get(sysevent_fd, sysevent_token, "QOS_connmark", CONNMARK, sizeof(CONNMARK));
+
+    // Check the data from sysevent for exsisting
+    if (enabled == false || strlen(MAC) == 0 || strlen(strDSCP) == 0 || strlen(CONNMARK) == 0) {
+        return -1;
+    }
+
+    // Convert dscp into an int
+    int DSCP = (int)strtol(strDSCP, NULL, 10);
+
+    char *debmes = malloc(256);
+    snprintf(debmes, 256,"INFO: %s vars:\n\tenabled: %d\n\tmac: %s\n\tdscp: %d\n", __func__, enabled, MAC, DSCP);
+    FIREWALL_DEBUG(debmes);
+    free(debmes);
+
+    // Apply firewall commands if qos is enabled
+    if (enabled == true) {
+	printf("QoS set proc in run \n");
+        fprintf(mangle_fp, "-I %s -i %s -m state --state NEW,ESTABLISHED -m mac --mac-source %s -j CONNMARK --set-mark %s\n", pre, lan_ifname, MAC, CONNMARK);
+        fprintf(mangle_fp, "-I %s -o %s -m connmark --mark %s -j DSCP --set-dscp %d\n", post, current_wan_ifname, CONNMARK, DSCP);
+        fprintf(mangle_fp, "-I %s -o %s -m connmark --mark %s -j DSCP --set-dscp %d\n", post, lan_ifname, CONNMARK, DSCP);
+    }
+
+    return 0;
+}
+
+
 static int do_block_ports(FILE *filter_fp);
 static int isInRFCaptivePortal();
 
@@ -12591,6 +12652,8 @@ static int prepare_subtables(FILE *raw_fp, FILE *mangle_fp, FILE *nat_fp, FILE *
    fprintf(mangle_fp, "-A POSTROUTING -j postrouting_qos\n");
    fprintf(mangle_fp, "-A POSTROUTING -j postrouting_lan2lan\n");
 
+setQoSFirewallParams(mangle_fp, "prerouting_qos", "postrouting_qos");
+
    //Ping Flood Limit For Guest Interface
    fprintf(mangle_fp, "-A PREROUTING -i %s -p icmp -m icmp --icmp-type echo-request -m limit --limit 20/sec -j ACCEPT\n", guest_lan_ifname);
    fprintf(mangle_fp, "-A PREROUTING -i %s -p icmp -m icmp --icmp-type echo-request -j DROP\n", guest_lan_ifname);
@@ -14701,7 +14764,10 @@ int prepare_ipv6_firewall(const char *fw_file)
 #endif
 
 #endif //_HUB4_PRODUCT_REQ_
-	/*add rules before this*/
+	
+   setQoSFirewallParams(mangle_fp, "PREROUTING", "postrouting_qos");
+
+   /*add rules before this*/
 
 	fprintf(raw_fp, "COMMIT\n");
 	fprintf(mangle_fp, "COMMIT\n");
